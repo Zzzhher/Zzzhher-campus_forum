@@ -10,7 +10,7 @@
         <el-form-item prop="username">
           <el-input
             v-model="form.username"
-            maxlength="10"
+            maxlength="20"
             type="text"
             placeholder="用户名/邮箱"
             :class="['custom-input', { 'is-focused': isUsernameFocused }]"
