@@ -40,7 +40,7 @@ public class RequestLogFilter extends OncePerRequestFilter {
             this.logRequestStart(request);
             ContentCachingResponseWrapper wrapper = new ContentCachingResponseWrapper(response);
             filterChain.doFilter(request, wrapper);
-            this.logRequestEnd(wrapper, startTime);
+            this.logRequestEnd(request, wrapper, startTime);
             wrapper.copyBodyToResponse();
         }
     }
@@ -59,14 +59,20 @@ public class RequestLogFilter extends OncePerRequestFilter {
 
     /**
      * 请求结束时的日志打印，包含处理耗时以及响应结果
+     * @param request 请求对象
      * @param wrapper 用于读取响应结果的包装类
      * @param startTime 起始时间
      */
-    public void logRequestEnd(ContentCachingResponseWrapper wrapper, long startTime){
+    public void logRequestEnd(HttpServletRequest request, ContentCachingResponseWrapper wrapper, long startTime){
         long time = System.currentTimeMillis() - startTime;
         int status = wrapper.getStatus();
-        String content = status != 200 ?
-                status + " 错误" : new String(wrapper.getContentAsByteArray());
+        String content;
+        // 判断是否为图片请求，避免二进制数据输出乱码
+        if (request.getServletPath().startsWith("/images/")) {
+            content = status != 200 ? status + " 错误" : "图片数据 (" + wrapper.getContentSize() + " bytes)";
+        } else {
+            content = status != 200 ? status + " 错误" : new String(wrapper.getContentAsByteArray());
+        }
         log.info("请求处理耗时: {}ms | 响应结果: {}", time, content);
     }
 
