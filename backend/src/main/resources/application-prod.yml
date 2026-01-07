@@ -37,7 +37,7 @@ spring:
       mail-limit: 60
     flow:
       period: 3
-      limit: 10
+      limit: 50
       block: 30
     cors:
       origin: "*"
@@ -49,7 +49,4 @@ spring:
     password: password
   weather:
     key: dbd7383a6fce44f48313afd8ba1d8843
-    # 个人专属API Host（如不可用，使用devapi.qweather.com）
-    # 免费订阅可能不支持个人专属域名，请在控制台-设置中确认
     apihost: nu3qqpjw8a.re.qweatherapi.com
-    # apihost: devapi.qweather.com

@@ -46,4 +46,8 @@ spring:
   weather:
     key: dbd7383a6fce44f48313afd8ba1d8843
     apihost: nu3qqpjw8a.re.qweatherapi.com
+  servlet:
+    multipart:
+      max-file-size: 10MB  # 单个文件最大大小
+      max-request-size: 20MB  # 单次请求总文件大小
 

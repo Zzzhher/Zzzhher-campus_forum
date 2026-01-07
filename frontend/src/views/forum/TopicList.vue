@@ -7,9 +7,10 @@ import {
   Link,
 } from "@element-plus/icons-vue";
 import Weather from "@/components/Weather.vue";
-import { reactive, computed } from "vue";
+import {reactive, computed, ref} from "vue";
 import { get } from "@/net";
 import { ElMessage } from "element-plus";
+import TopicEditor from "@/components/TopicEditor.vue";
 
 const weather = reactive({
   location: {},
@@ -17,6 +18,8 @@ const weather = reactive({
   hourly: [],
   success: false,
 });
+
+const editor = ref(false)
 
 const today = computed(() => {
   const date = new Date()
@@ -97,7 +100,7 @@ function useDefaultLocation() {
   <div style="display: flex; margin: 20px auto; gap: 20px; max-width: 900px">
     <div style="flex: 1">
       <light-card>
-        <div class="create-topic">
+        <div class="create-topic" @click="editor = true">
           <el-icon><EditPen /></el-icon> 点击发表主题...
         </div>
       </light-card>
@@ -113,7 +116,6 @@ function useDefaultLocation() {
         <light-card style="height: 150px" v-for="item in 10"> </light-card>
       </div>
     </div>
-
     <div style="width: 280px">
       <div style="position: sticky; top: 20px">
         <light-card>
@@ -179,6 +181,7 @@ function useDefaultLocation() {
         </div>
       </div>
     </div>
+    <topic-editor :show="editor" @success="editor = false" @close="editor = false"/>
   </div>
 </template>
 
@@ -204,6 +207,24 @@ function useDefaultLocation() {
 
   &:hover {
     cursor: pointer;
+  }
+}
+
+.dark {
+  .create-topic {
+    background-color: #232323;
+  }
+
+  .type-select-card {
+    background-color: #282828;
+
+    &.active {
+      border: solid 1px #64594b;
+    }
+
+    &:hover {
+      background-color: #5e5e5e;
+    }
   }
 }
 </style>
