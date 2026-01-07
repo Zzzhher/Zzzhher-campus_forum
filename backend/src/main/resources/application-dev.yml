@@ -20,7 +20,7 @@ spring:
     driver-class-name: com.mysql.cj.jdbc.Driver
   security:
     jwt:
-      key: 'abcdefghijklmn'
+      key: "abcdefghijklmn"
       expire: 72
       limit:
         base: 10
@@ -36,10 +36,14 @@ spring:
       limit: 50
       block: 30
     cors:
-      origin: '*'
+      origin: "*"
       credentials: false
-      methods: '*'
+      methods: "*"
   minio:
     endpoint: http://192.168.65.128:9000
     username: minio
     password: password
+  weather:
+    key: dbd7383a6fce44f48313afd8ba1d8843
+    apihost: nu3qqpjw8a.re.qweatherapi.com
+
