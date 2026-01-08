@@ -9,10 +9,11 @@ import { ElMessage } from "element-plus";
 import { accessHeader, get, post } from "@/net";
 import axios from "axios";
 import ColorDot from "@/components/ColorDot.vue";
+import {userStore} from "@/store";
 defineProps({
   show: Boolean,
 });
-
+const store = userStore()
 const emit = defineEmits(["close", "success"]);
 
 const refEditor = ref();
@@ -20,9 +21,8 @@ const editor = reactive({
   type: null,
   title: "",
   text: new Delta(),
-  loading: false,
-  types: [],
-});
+  loading: false
+})
 
 function initEditor() {
   refEditor.value.setContents(new Delta(), "user");
@@ -75,7 +75,7 @@ function submitTopic() {
   );
 }
 
-get("/api/forum/types", (data) => (editor.types = data));
+
 
 Quill.register("modules/imageResize", ImageResize);
 Quill.register("modules/ImageExtend", ImageExtend);
@@ -167,10 +167,10 @@ const editorOption = {
             placeholder="选择主题类型..."
             value-key="id"
             v-model="editor.type"
-            :disabled="!editor.types.length"
+            :disabled="!store.forum.types.length"
           >
             <el-option
-              v-for="item in editor.types"
+              v-for="item in store.forum.types.filter(type => type.id > 0)"
               :value="item"
               :label="item.name"
             >

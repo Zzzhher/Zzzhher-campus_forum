@@ -4,6 +4,8 @@ import com.alibaba.fastjson2.JSONObject;
 import com.example.entity.RestBean;
 import com.example.entity.dto.Account;
 import com.example.entity.vo.request.TopicCreateVO;
+import com.example.entity.vo.response.TopicPreviewVO;
+import com.example.entity.vo.response.TopicTopVO;
 import com.example.entity.vo.response.TopicTypeVO;
 import com.example.entity.vo.response.WeatherVO;
 import com.example.service.TopicService;
@@ -12,6 +14,7 @@ import com.example.utils.Const;
 import com.example.utils.ControllerUtils;
 import jakarta.annotation.Resource;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -53,5 +56,16 @@ public class ForumController {
 //            return RestBean.forbidden("您已被禁言，无法创建新的主题");
 //        }
         return utils.messageHandle(() -> topicService.createTopic(id, vo));
+    }
+
+    @GetMapping("/list-topic")
+    public RestBean<List<TopicPreviewVO>> listTopic(@RequestParam @Min(0) int page,
+                                                    @RequestParam @Min(0) int type) {
+        return RestBean.success(topicService.listTopicByPage(page , type));
+    }
+
+    @GetMapping("/top-topic")
+    public RestBean<List<TopicTopVO>> topTopic(){
+        return RestBean.success(topicService.listTopTopics());
     }
 }
