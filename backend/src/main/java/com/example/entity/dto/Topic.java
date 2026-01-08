@@ -14,10 +14,7 @@ public class Topic {
     Integer id;
     String title;
     String content;
-    Integer uid;
     Integer type;
     Date time;
-    String username;
-    String avatar;
-
+    Integer uid;
 }

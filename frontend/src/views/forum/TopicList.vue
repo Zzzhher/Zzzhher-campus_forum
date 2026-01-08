@@ -14,6 +14,7 @@ import TopicEditor from "@/components/TopicEditor.vue";
 import {userStore} from "@/store";
 import axios from "axios";
 import ColorDot from "@/components/ColorDot.vue";
+import router from "@/router";
 
 const store = userStore()
 
@@ -35,12 +36,7 @@ const topics = reactive({
 
 watch( () => topics.type, () => resetList(), {immediate: true})
 
-get('/api/forum/types', data => {
-    const array = []
-    array.push({name: '全部', id: 0, color: 'linear-gradient(45deg, white, red, orange, gold, green, blue)'})
-    data.forEach(d => array.push(d))
-    store.forum.types = array
-})
+
 get('/api/forum/top-topic', data => topics.top = data)
 function updateList() {
   if (topics.end) return
@@ -177,7 +173,7 @@ function useDefaultLocation() {
       <transition name="el-fade-in" mode="out-in">
         <div v-if="topics.list.length">
           <div v-if="store.forum.types" style="margin-top: 10px;display: flex;flex-direction: column;gap: 10px;" v-infinite-scroll="updateList">
-            <light-card v-for="item in topics.list" class="topic-card">
+            <light-card v-for="item in topics.list" class="topic-card" @click="router.push('/index/topic-detail/'+item.id)">
               <div style="display: flex">
                 <div><el-avatar :size="30" :src="`${axios.defaults.baseURL}/images${item.avatar}`"/></div>
                 <div style="margin-left: 7px; transform: translateY(-2px)">

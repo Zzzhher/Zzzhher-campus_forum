@@ -30,7 +30,6 @@ public class ImageServiceImpl extends ServiceImpl<ImageStoreMapper, StoreImage> 
     MinioClient client;
     @Resource
     AccountMapper mapper;
-
     @Resource
     FlowUtils flowUtils;
 
