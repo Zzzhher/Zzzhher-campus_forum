@@ -1,10 +1,11 @@
 <script setup>
 import LightCard from "@/components/LightCard.vue";
 import {
-  Calendar, Clock,
+  ArrowRightBold,
+  Calendar, CircleCheck, Clock,
   CollectionTag, Compass, Document, Edit,
-  EditPen,
-  Link, Microphone, Picture,
+  EditPen, FolderOpened,
+  Link, Microphone, Picture, Star,
 } from "@element-plus/icons-vue";
 import Weather from "@/components/Weather.vue";
 import {reactive, computed, ref, watch} from "vue";
@@ -15,6 +16,8 @@ import {userStore} from "@/store";
 import axios from "axios";
 import ColorDot from "@/components/ColorDot.vue";
 import router from "@/router";
+import TopicTag from "@/components/TopicTag.vue";
+import TopicCollectList from "@/components/TopicCollectList.vue";
 
 const store = userStore()
 
@@ -33,6 +36,9 @@ const topics = reactive({
   end: false,
   top: []
 })
+
+const collects = ref(false)
+
 
 watch( () => topics.type, () => resetList(), {immediate: true})
 
@@ -157,7 +163,7 @@ function useDefaultLocation() {
       </light-card>
 
       <light-card style="margin-top: 10px; display: flex; flex-direction: column; gap: 10px">
-        <div v-for="item in topics.top" class="top-topic">
+        <div v-for="item in topics.top" class="top-topic" @click="router.push(`/index/topic-detail/${item.id}`)">
           <el-tag type="info" size="small">置顶</el-tag>
           <div>{{item.title}}</div>
           <div>{{new Date(item.time).toLocaleString()}}</div>
@@ -185,17 +191,20 @@ function useDefaultLocation() {
                 </div>
               </div>
               <div style="margin-top: 5px">
-                <div :style="{
-                 color: store.findTypeById(item.type)?.color + 'EE',
-                 'border-color': store.findTypeById(item.type)?.color + '77',
-                 'background': store.findTypeById(item.type)?.color + '33'
-            }" class="topic-type">{{ store.findTypeById(item.type)?.name }}
-                </div>
+                <topic-tag :type="item.type"/>
                 <span style="font-weight: bold;margin-left: 7px">{{ item.title }}</span>
               </div>
               <div class="topic-content">{{ item.text }}</div>
               <div style="display: grid;grid-template-columns: repeat(3, 1fr);grid-gap: 10px">
                 <el-image v-for="img in item.images" :src="img" class="topic-image" fit="cover"></el-image>
+              </div>
+              <div style="display: flex;gap: 20px;font-size: 13px;margin-top: 10px;opacity: 0.8">
+                <div>
+                  <el-icon style="vertical-align: middle"><CircleCheck/></el-icon> {{item.like}}点赞
+                </div>
+                <div>
+                  <el-icon style="vertical-align: middle"><Star/></el-icon> {{item.collect}}收藏
+                </div>
               </div>
             </light-card>
           </div>
@@ -204,6 +213,12 @@ function useDefaultLocation() {
     </div>
     <div style="width: 280px">
       <div style="position: sticky; top: 20px">
+        <light-card>
+          <div class="collect-list-button" @click="collects = true"><span><el-icon><FolderOpened/></el-icon>查看我的收藏</span>
+            <el-icon style="transform: translateY(3px)"><ArrowRightBold/></el-icon>
+          </div>
+        </light-card>
+
         <light-card>
           <div style="font-weight: bold">
             <el-icon><CollectionTag/></el-icon>论坛公告
@@ -271,10 +286,25 @@ function useDefaultLocation() {
       </div>
     </div>
     <topic-editor :show="editor" @close="editor = false" @success="onTopicCreate"/>
+    <topic-collect-list :show="collects" @close="collects = false"/>
   </div>
 </template>
 
 <style lang="less" scoped>
+
+
+.collect-list-button {
+  font-size: 14px;
+  display: flex;
+  justify-content: space-between;
+  transition: .3s;
+
+  &:hover {
+    cursor: pointer;
+    opacity: 0.6;
+  }
+}
+
 .info-text {
   display: flex;
   justify-content: space-between;
@@ -351,15 +381,6 @@ function useDefaultLocation() {
     height: 100%;
     max-height: 110px;
     border-radius: 5px;
-  }
-
-  .topic-type {
-    display: inline-block;
-    border: solid 0.5px grey;
-    border-radius: 5px;
-    font-size: 12px;
-    padding: 0 5px;
-    height: 18px;
   }
 }
 

@@ -18,10 +18,14 @@ import com.example.utils.FlowUtils;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.Resource;
 import org.springframework.beans.BeanUtils;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.core.parameters.P;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Service
@@ -43,6 +47,9 @@ public class TopicServiceImpl extends ServiceImpl<TopicMapper, Topic> implements
     AccountDetailsMapper accountDetailsMapper;
     @Resource
     AccountPrivacyMapper accountPrivacyMapper;
+
+    @Resource
+    StringRedisTemplate template;
 
     private  Set<Integer> types = null;
 
@@ -112,15 +119,84 @@ public class TopicServiceImpl extends ServiceImpl<TopicMapper, Topic> implements
     }
 
     @Override
-    public TopicDetailVO getTopic(int tid) {
+    public TopicDetailVO getTopic(int tid, int uid) {
         TopicDetailVO vo = new TopicDetailVO();
         Topic topic = baseMapper.selectById(tid);
         BeanUtils.copyProperties(topic, vo);
+        TopicDetailVO.Interact interact = new TopicDetailVO.Interact(
+                hasInteract(tid, uid, "like"),
+                hasInteract(tid, uid, "collect")
+        );
+        vo.setInteract(interact);
         TopicDetailVO.User user = new TopicDetailVO.User();
         vo.setUser(this.fillUserDetailsByPrivacy(user, topic.getUid()));
         return vo;
     }
 
+    /**
+     * 由于论坛交互数据（如点赞、收藏等）更新可能会非常频繁
+     * 更新信息实时到MySQL不太现实，所以需要用Redis做缓冲并在合适的时机一次性入库一段时间内的全部数据
+     * 当数据更新到来时，会创建一个新的定时任务，此任务会在一段时间之后执行
+     * 将全部Redis中暂时缓存的信息一次性加入到数据库，从而缓解MySQL压力，如果
+     * 在定时任务已经设定期间又有新的更新到来，仅更新Redis不创建新的延时任务
+     */
+    @Override
+    public void interact(Interact interact, boolean state) {
+        String type = interact.getType();
+        synchronized (type.intern()) {
+            template.opsForHash().put(type, interact.toKey(), Boolean.toString(state));
+            this.saveInteractSchedule(type);
+        }
+    }
+
+    @Override
+    public List<TopicPreviewVO> listTopicCollects(int uid) {
+        return baseMapper.collectTopics(uid)
+                .stream()
+                .map(topic -> {
+                    TopicPreviewVO vo = new TopicPreviewVO();
+                    BeanUtils.copyProperties(topic, vo);
+                    return vo;
+                })
+                .toList();
+    }
+
+    private boolean hasInteract(int tid, int uid, String type) {
+        String key = tid + ":" + uid;
+        if (template.opsForHash().hasKey(type, key))
+            return Boolean.parseBoolean(template.opsForHash().entries(type).get(key).toString());
+        return baseMapper.userInteractCount(tid, uid, type) > 0;
+    }
+
+    private final Map<String, Boolean> state = new HashMap<>();
+    ScheduledExecutorService service = Executors.newScheduledThreadPool(2);
+    private void saveInteractSchedule(String type) {
+        if(!state.getOrDefault(type, false)) {
+            state.put(type, true);
+            service.schedule(() -> {
+                this.saveInteract(type);
+                state.put(type, false);
+            }, 3, TimeUnit.SECONDS);
+        }
+    }
+
+    private void saveInteract(String type) {
+        synchronized (type.intern()) {
+            List<Interact> check = new LinkedList<>();
+            List<Interact> uncheck = new LinkedList<>();
+            template.opsForHash().entries(type).forEach((k, v) -> {
+                if(Boolean.parseBoolean(v.toString()))
+                    check.add(Interact.parseInteract(k.toString(), type));
+                else
+                    uncheck.add(Interact.parseInteract(k.toString(), type));
+            });
+            if(!check.isEmpty())
+                baseMapper.addInteract(check, type);
+            if(!uncheck.isEmpty())
+                baseMapper.deleteInteract(uncheck, type);
+            template.delete(type);
+        }
+    }
 
 
     private <T> T fillUserDetailsByPrivacy(T target, int uid){
@@ -138,6 +214,8 @@ public class TopicServiceImpl extends ServiceImpl<TopicMapper, Topic> implements
         TopicPreviewVO vo = new TopicPreviewVO();
         BeanUtils.copyProperties(accountMapper.selectById(topic.getUid()),vo);
         BeanUtils.copyProperties(topic, vo);
+        vo.setLike(baseMapper.interactCount(topic.getId(),"like"));
+        vo.setCollect(baseMapper.interactCount(topic.getId(),"collect"));
         List<String> images = new ArrayList<>();
         StringBuilder previewText = new StringBuilder();
         JSONArray ops = JSONObject.parseObject(topic.getContent()).getJSONArray("ops");

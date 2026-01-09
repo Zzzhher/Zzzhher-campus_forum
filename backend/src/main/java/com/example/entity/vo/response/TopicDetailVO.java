@@ -13,16 +13,16 @@ public class TopicDetailVO {
     Integer type;
     Date time;
     User user;
-//    Interact interact;
+    Interact interact;
 //    Long comments;
 //    Integer locked;
 
-//    @Data
-//    @AllArgsConstructor
-//    public static class Interact {
-//        Boolean like;
-//        Boolean collect;
-//    }
+    @Data
+    @AllArgsConstructor
+    public static class Interact {
+        Boolean like;
+        Boolean collect;
+    }
 
     @Data
     public static class User {

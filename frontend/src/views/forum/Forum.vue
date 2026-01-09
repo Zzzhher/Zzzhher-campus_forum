@@ -1,6 +1,6 @@
 <script setup>
 import {userStore} from "@/store";
-
+import {get} from "@/net";
 const store = userStore()
 get('/api/forum/types', data => {
   const array = []
