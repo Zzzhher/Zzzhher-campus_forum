@@ -4,6 +4,7 @@ import com.alibaba.fastjson2.JSONObject;
 import com.example.entity.RestBean;
 import com.example.entity.dto.Account;
 import com.example.entity.dto.Interact;
+import com.example.entity.vo.request.AddCommentVO;
 import com.example.entity.vo.request.TopicCreateVO;
 import com.example.entity.vo.request.TopicUpdateVO;
 import com.example.entity.vo.response.*;
@@ -95,4 +96,28 @@ public class ForumController {
                                       @RequestAttribute(Const.ATTR_USER_ID) int id){
         return utils.messageHandle(() -> topicService.updateTopic(id, vo));
     }
+    @PostMapping("/add-comment")
+    public RestBean<Void> addComment(@Valid @RequestBody AddCommentVO vo,
+                                     @RequestAttribute(Const.ATTR_USER_ID) int id){
+//        Account account = accountService.findAccountById(id);
+//        if(account.isMute()) {
+//            return RestBean.forbidden("您已被禁言，无法创建新的回复");
+//        }
+        return utils.messageHandle(() -> topicService.createComment(id, vo));
+    }
+
+    @GetMapping("/comments")
+    public RestBean<List<CommentVO>> comments(@RequestParam @Min(0) int tid,
+                                              @RequestParam @Min(0) int page){
+        return RestBean.success(topicService.comments(tid, page + 1));
+    }
+
+    @GetMapping("/delete-comment")
+    public RestBean<Void> deleteComment(@RequestParam @Min(0) int id,
+                                        @RequestAttribute(Const.ATTR_USER_ID) int uid){
+        topicService.deleteComment(id, uid);
+        return RestBean.success();
+    }
+
+
 }

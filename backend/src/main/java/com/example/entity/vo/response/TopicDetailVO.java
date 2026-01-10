@@ -14,7 +14,7 @@ public class TopicDetailVO {
     Date time;
     User user;
     Interact interact;
-//    Long comments;
+    Long comments;
 //    Integer locked;
 
     @Data

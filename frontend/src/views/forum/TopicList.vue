@@ -147,7 +147,7 @@ function useDefaultLocation() {
 </script>
 
 <template>
-  <div style="display: flex; margin: 20px auto; gap: 20px; max-width: 900px">
+  <div style="display: flex; margin: 20px auto; gap: 20px; max-width: 900px; padding: 0 20px">
     <div style="flex: 1">
       <light-card>
         <div class="create-topic" @click="editor = true">
@@ -181,7 +181,7 @@ function useDefaultLocation() {
           <div v-if="store.forum.types" style="margin-top: 10px;display: flex;flex-direction: column;gap: 10px;" v-infinite-scroll="updateList">
             <light-card v-for="item in topics.list" class="topic-card" @click="router.push('/index/topic-detail/'+item.id)">
               <div style="display: flex">
-                <div><el-avatar :size="30" :src="`${axios.defaults.baseURL}/images${item.avatar}`"/></div>
+                <div><el-avatar :size="30" :src="store.avatarUserUrl(item.avatar)"/></div>
                 <div style="margin-left: 7px; transform: translateY(-2px)">
                   <div style="font-size: 13px;font-weight: bold">{{ item.username }}</div>
                   <div style="font-size: 12px;color: grey"><el-icon><Clock/></el-icon>

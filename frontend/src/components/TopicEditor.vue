@@ -36,7 +36,7 @@ const props = defineProps({
         title: editor.title,
         content: editor.text
       }, () => {
-        ELMessage.success("帖子发表成功！")
+        ElMessage.success("帖子发表成功！")
         success()
       })
     },
@@ -170,60 +170,59 @@ const editorOption = {
 };
 </script>
 <template>
-  <div>
-    <el-drawer
+  <el-drawer
       :model-value="show"
       direction="btt"
       @open="initEditor"
       :close-on-click-modal="false"
       :size="650"
       @close="emit('close')"
-    >
-      <template #header>
-        <div>
-          <div style="font-weight: bold">发表新帖子</div>
-          <div style="font-size: 13px">
-            发表内容之前，请遵守相关法律法规，不要出现不文明行为。
-          </div>
+  >
+    <template #header>
+      <div>
+        <div style="font-weight: bold">发表新帖子</div>
+        <div style="font-size: 13px">
+          发表内容之前，请遵守相关法律法规，不要出现不文明行为。
         </div>
-      </template>
-      <div style="display: flex; gap: 10px">
-        <div style="width: 150px">
-          <el-select
+      </div>
+    </template>
+    <div style="display: flex; gap: 10px">
+      <div style="width: 150px">
+        <el-select
             placeholder="选择主题类型..."
             value-key="id"
             v-model="editor.type"
             :disabled="!store.forum.types.length"
-          >
-            <el-option
+        >
+          <el-option
               v-for="item in store.forum.types.filter(type => type.id > 0)"
               :value="item"
               :label="item.name"
-            >
-              <div>
-                <color-dot :color="item.color" />
-                <span style="margin-left: 10px">{{ item.name }}</span>
-              </div>
-            </el-option>
-          </el-select>
-        </div>
-        <div style="flex: 1">
-          <el-input
+          >
+            <div>
+              <color-dot :color="item.color" />
+              <span style="margin-left: 10px">{{ item.name }}</span>
+            </div>
+          </el-option>
+        </el-select>
+      </div>
+      <div style="flex: 1">
+        <el-input
             v-model="editor.title"
             placeholder="请输入帖子标题..."
             :prefix-icon="Document"
             style="height: 100%"
             maxlength="30"
-          />
-        </div>
+        />
       </div>
-      <div style="margin-top: 5px; font-size: 13px; color: grey">
-        <color-dot :color="editor.type ? editor.type.color : '#dedede'" />
-        <span style="margin-left: 5px">{{
+    </div>
+    <div style="margin-top: 5px; font-size: 13px; color: grey">
+      <color-dot :color="editor.type ? editor.type.color : '#dedede'" />
+      <span style="margin-left: 5px">{{
           editor.type ? editor.type.desc : "请在上方选择一个帖子类型"
         }}</span>
-      </div>
-      <div
+    </div>
+    <div
         style="
           margin-top: 10px;
           height: 440px;
@@ -232,29 +231,28 @@ const editorOption = {
         "
         v-loading="editor.uploading"
         element-loading-text="正在上传图片，请耐心等待..."
-      >
-        <quill-editor
+    >
+      <quill-editor
           v-model:content="editor.text"
           style="height: calc(100% - 45px)"
           content-type="delta"
           ref="refEditor"
           placeholder="分享你此刻的想法..."
           :options="editorOption"
-        />
-      </div>
-      <div
+      />
+    </div>
+    <div
         style="display: flex; justify-content: space-between; margin-top: 5px"
-      >
-        <div style="color: grey; font-size: 13px">
-          当前字数 {{ contentLength }}（最大支持20000字）
-        </div>
-        <div>
-          <el-button type="success" :icon="Check" @click="submitTopic" plain
-            >{{ submitButton }}</el-button>
-        </div>
+    >
+      <div style="color: grey; font-size: 13px">
+        当前字数 {{ contentLength }}（最大支持20000字）
       </div>
-    </el-drawer>
-  </div>
+      <div>
+        <el-button type="success" :icon="Check" @click="submitTopic" plain
+        >{{ submitButton }}</el-button>
+      </div>
+    </div>
+  </el-drawer>
 </template>
 
 <style scoped>
@@ -265,20 +263,5 @@ const editorOption = {
 }
 :deep(.el-drawer__header) {
   margin: 0;
-}
-:deep(.ql-toolbar) {
-  border-radius: 5px 5px 0 0;
-  border-color: var(--el-border-color);
-}
-:deep(.ql-container) {
-  border-radius: 0 0 5px 5px;
-  border-color: var(--el-border-color);
-}
-:deep(.ql-editor.ql-blank::before) {
-  color: var(--el-text-color-placeholder);
-  font-style: normal;
-}
-:deep(.ql-editor) {
-  font-size: 16px;
 }
 </style>
