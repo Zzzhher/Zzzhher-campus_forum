@@ -71,33 +71,33 @@
         </el-form-item>
 
         <el-form-item prop="code" class="form-item">
-              <el-row :gutter="12" style="width: 100%">
-                <el-col :span="14">
-                  <el-input
-                    v-model="form.code"
-                    :maxlength="6"
-                    type="text"
-                    placeholder="请输入验证码"
-                    class="custom-input"
-                  >
-                    <template #prefix>
-                      <el-icon class="input-icon"><EditPen /></el-icon>
-                    </template>
-                  </el-input>
-                </el-col>
-                <el-col :span="8">
-                  <el-button
-                    type="success"
-                    @click="validateEmail"
-                    :disabled="!isEmailValid || coldTime > 0"
-                    class="code-button"
-                    size="medium"
-                  >
-                    {{ coldTime > 0 ? "请稍后 " + coldTime + " 秒" : "获取验证码" }}
-                  </el-button>
-                </el-col>
-              </el-row>
-            </el-form-item>
+          <el-row :gutter="12" style="width: 100%">
+            <el-col :span="14">
+              <el-input
+                v-model="form.code"
+                :maxlength="6"
+                type="text"
+                placeholder="请输入验证码"
+                class="custom-input"
+              >
+                <template #prefix>
+                  <el-icon class="input-icon"><EditPen /></el-icon>
+                </template>
+              </el-input>
+            </el-col>
+            <el-col :span="8">
+              <el-button
+                type="success"
+                @click="validateEmail"
+                :disabled="!isEmailValid || coldTime > 0"
+                class="code-button"
+                size="medium"
+              >
+                {{ coldTime > 0 ? "请稍后 " + coldTime + " 秒" : "获取验证码" }}
+              </el-button>
+            </el-col>
+          </el-row>
+        </el-form-item>
       </el-form>
     </div>
 
@@ -106,7 +106,6 @@
         style="width: 100%"
         type="primary"
         @click="register"
-        plain
         class="register-button"
         size="large"
       >
@@ -213,8 +212,8 @@ const register = () => {
     } else {
       ElMessage.warning("请完整填写注册表单内容！");
     }
-  })
-}
+  });
+};
 
 const validateEmail = () => apiAuthAskCode(form.email, coldTime);
 </script>

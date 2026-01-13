@@ -49,7 +49,7 @@ export const apiUserPrivacy = (success) =>
     get('/api/user/privacy', success)
 
 export const apiUserPrivacySave = (data, loadingRef) => {
-    loadingRef.value = false
+    loadingRef.value = true
     post('/api/user/save-privacy', data, () => {
         ElMessage.success('隐私设置修改成功！')
         loadingRef.value = false
@@ -77,11 +77,11 @@ export const apiNotificationDeleteAll = (success) =>
 export const apiNotificationDelete = (id, success) =>
     get(`/api/notification/delete?id=${id}`, success)
 
-export const apiUserList = (page, size, keyword, success) =>
-    get(`api/admin/user/list?page=${page}&size=${size}&keyword=${keyword}`, success)
+export const apiUserList = (page, size, success) =>
+    get(`/api/admin/user/list?page=${page}&size=${size}`, success)
 
 export const apiUserDetailTotal = (id, success) =>
-    get(`api/admin/user/detail?id=${id}`, success)
+    get(`/api/admin/user/detail?id=${id}`, success)
 
 export const apiUserSave = (data, success) =>
     post('/api/admin/user/save', data, success)

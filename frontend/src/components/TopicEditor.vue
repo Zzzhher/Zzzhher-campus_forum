@@ -9,42 +9,45 @@ import { ElMessage } from "element-plus";
 import { accessHeader } from "@/net";
 import axios from "axios";
 import ColorDot from "@/components/ColorDot.vue";
-import {userStore} from "@/store";
-import {apiForumTopicCreate} from "@/net/api/forum";
+import { userStore } from "@/store";
+import { apiForumTopicCreate } from "@/net/api/forum";
 
 const props = defineProps({
   show: Boolean,
   defaultTitle: {
-    default: '',
-    type: String
+    default: "",
+    type: String,
   },
   defaultText: {
-    default: '',
-    type: String
+    default: "",
+    type: String,
   },
   defaultType: {
     default: null,
-    type: Number
+    type: Number,
   },
   submitButton: {
-    default: '立即发布',
-    type: String
+    default: "立即发布",
+    type: String,
   },
   submit: {
     default: (editor, success) => {
-      apiForumTopicCreate({
-        type: editor.type.id,
-        title: editor.title,
-        content: editor.text
-      }, () => {
-        ElMessage.success("帖子发表成功！")
-        success()
-      })
+      apiForumTopicCreate(
+        {
+          type: editor.type.id,
+          title: editor.title,
+          content: editor.text,
+        },
+        () => {
+          ElMessage.success("帖子发表成功！");
+          success();
+        }
+      );
     },
-    type: Function
-  }
+    type: Function,
+  },
 });
-const store = userStore()
+const store = userStore();
 const emit = defineEmits(["close", "success"]);
 
 const refEditor = ref();
@@ -52,23 +55,19 @@ const editor = reactive({
   type: null,
   title: "",
   text: new Delta(),
-  loading: false
-})
+  loading: false,
+});
 
 function initEditor() {
-  if (props.defaultText)
-    editor.text = new Delta(JSON.parse(props.defaultText))
-  else
-    refEditor.value.setContents(new Delta(), "user");
-  editor.title = props.defaultTitle
-  editor.type = findTypeById(props.defaultType)
+  if (props.defaultText) editor.text = new Delta(JSON.parse(props.defaultText));
+  else refEditor.value.setContents(new Delta(), "user");
+  editor.title = props.defaultTitle;
+  editor.type = findTypeById(props.defaultType);
 }
 
-
-function findTypeById(id){
+function findTypeById(id) {
   for (let type of store.forum.types) {
-    if(type.id === id)
-      return type
+    if (type.id === id) return type;
   }
 }
 
@@ -84,7 +83,7 @@ function deltaToText(delta) {
   if (str.endsWith("\n")) {
     str = str.slice(0, -1);
   }
-  return str.replace(/\s/g, "")
+  return str.replace(/\s/g, "");
 }
 
 const contentLength = computed(() => deltaToText(editor.text).length);
@@ -103,7 +102,7 @@ function submitTopic() {
     ElMessage.warning("请选择一个合适的帖子类型！");
     return;
   }
-  props.submit(editor,() => emit('success'))
+  props.submit(editor, () => emit("success"));
 }
 Quill.register("modules/imageResize", ImageResize);
 Quill.register("modules/ImageExtend", ImageExtend);
@@ -171,59 +170,60 @@ const editorOption = {
 };
 </script>
 <template>
-  <el-drawer
+  <div class="topic-editor-wrapper">
+    <el-drawer
       :model-value="show"
       direction="btt"
       @open="initEditor"
       :close-on-click-modal="false"
       :size="650"
       @close="emit('close')"
-  >
-    <template #header>
-      <div>
-        <div style="font-weight: bold">发表新帖子</div>
-        <div style="font-size: 13px">
-          发表内容之前，请遵守相关法律法规，不要出现不文明行为。
+    >
+      <template #header>
+        <div>
+          <div style="font-weight: bold">发表新帖子</div>
+          <div style="font-size: 13px">
+            发表内容之前，请遵守相关法律法规，不要出现不文明行为。
+          </div>
         </div>
-      </div>
-    </template>
-    <div style="display: flex; gap: 10px">
-      <div style="width: 150px">
-        <el-select
+      </template>
+      <div style="display: flex; gap: 10px">
+        <div style="width: 150px">
+          <el-select
             placeholder="选择主题类型..."
             value-key="id"
             v-model="editor.type"
             :disabled="!store.forum.types.length"
-        >
-          <el-option
-              v-for="item in store.forum.types.filter(type => type.id > 0)"
+          >
+            <el-option
+              v-for="item in store.forum.types.filter((type) => type.id > 0)"
               :value="item"
               :label="item.name"
-          >
-            <div>
-              <color-dot :color="item.color" />
-              <span style="margin-left: 10px">{{ item.name }}</span>
-            </div>
-          </el-option>
-        </el-select>
-      </div>
-      <div style="flex: 1">
-        <el-input
+            >
+              <div>
+                <color-dot :color="item.color" />
+                <span style="margin-left: 10px">{{ item.name }}</span>
+              </div>
+            </el-option>
+          </el-select>
+        </div>
+        <div style="flex: 1">
+          <el-input
             v-model="editor.title"
             placeholder="请输入帖子标题..."
             :prefix-icon="Document"
             style="height: 100%"
             maxlength="30"
-        />
+          />
+        </div>
       </div>
-    </div>
-    <div style="margin-top: 5px; font-size: 13px; color: grey">
-      <color-dot :color="editor.type ? editor.type.color : '#dedede'" />
-      <span style="margin-left: 5px">{{
+      <div style="margin-top: 5px; font-size: 13px; color: grey">
+        <color-dot :color="editor.type ? editor.type.color : '#dedede'" />
+        <span style="margin-left: 5px">{{
           editor.type ? editor.type.desc : "请在上方选择一个帖子类型"
         }}</span>
-    </div>
-    <div
+      </div>
+      <div
         style="
           margin-top: 10px;
           height: 440px;
@@ -232,37 +232,43 @@ const editorOption = {
         "
         v-loading="editor.uploading"
         element-loading-text="正在上传图片，请耐心等待..."
-    >
-      <quill-editor
+      >
+        <quill-editor
           v-model:content="editor.text"
           style="height: calc(100% - 45px)"
           content-type="delta"
           ref="refEditor"
           placeholder="分享你此刻的想法..."
           :options="editorOption"
-      />
-    </div>
-    <div
+        />
+      </div>
+      <div
         style="display: flex; justify-content: space-between; margin-top: 5px"
-    >
-      <div style="color: grey; font-size: 13px">
-        当前字数 {{ contentLength }}（最大支持20000字）
+      >
+        <div style="color: grey; font-size: 13px">
+          当前字数 {{ contentLength }}（最大支持20000字）
+        </div>
+        <div>
+          <el-button type="success" :icon="Check" @click="submitTopic" plain>{{
+            submitButton
+          }}</el-button>
+        </div>
       </div>
-      <div>
-        <el-button type="success" :icon="Check" @click="submitTopic" plain
-        >{{ submitButton }}</el-button>
-      </div>
-    </div>
-  </el-drawer>
+    </el-drawer>
+  </div>
 </template>
 
 <style scoped>
-:deep(.el-drawer) {
+.topic-editor-wrapper :deep(.el-drawer) {
   width: 800px;
   margin: auto;
-  border-radius: 10px 10px 0 0;
+  border-radius: 10px 10px 10px 10px;
+  text-align: left;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transform: translateY(-10px);
 }
-:deep(.el-drawer__header) {
+
+.topic-editor-wrapper :deep(.el-drawer__header) {
   margin: 0;
 }
 </style>
