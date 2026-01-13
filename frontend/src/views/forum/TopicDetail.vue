@@ -1,8 +1,6 @@
 <script setup>
 import { useRoute } from "vue-router";
-import {get, post} from "@/net";
-import {computed, reactive, ref} from "vue";
-import axios from "axios";
+import { reactive, ref} from "vue";
 import {ArrowLeft, ChatSquare, CircleCheck, Delete, EditPen, Female, Male, Plus, Star} from "@element-plus/icons-vue";
 import { QuillDeltaToHtmlConverter } from 'quill-delta-to-html';
 import Card from "@/components/Card.vue";
@@ -13,6 +11,13 @@ import {ElMessage} from "element-plus";
 import {userStore} from "@/store";
 import TopicEditor from "@/components/TopicEditor.vue";
 import TopicCommentEditor from "@/components/TopicCommentEditor.vue";
+import {
+  apiForumCommentDelete,
+  apiForumComments,
+  apiForumInteract,
+  apiForumTopic,
+  apiForumUpdateTopic
+} from "@/net/api/forum";
 const route = useRoute();
 const tid = route.params.tid;
 const store = userStore()
@@ -34,12 +39,12 @@ const comment = reactive({
 function loadComments(page) {
   topic.comments = null
   topic.page = page
-  get(`/api/forum/comments?tid=${tid}&page=${page - 1}`, data => topic.comments = data)
+  apiForumComments(tid, page - 1, data => topic.comments = data)
 }
 
 const edit = ref(false)
 
-const init = () => get(`api/forum/topic?tid=${tid}`, data => {
+const init = () => apiForumTopic(tid, data => {
   topic.data = data
   topic.like = data.interact.like
   topic.collect = data.interact.collect
@@ -59,25 +64,18 @@ function onCommentAdd() {
 }
 
 function interact(type, message) {
-  get(`/api/forum/interact?tid=${tid}&type=${type}&state=${!topic[type]}`, () => {
-    topic[type] = !topic[type]
-    if (topic[type])
-      ElMessage.success(`${message}成功!`)
-    else
-      ElMessage.success(`已取消${message}!`)
-  })
+  apiForumInteract(tid, type, topic, message)
 }
 
 function deleteComment(id) {
-  get('api/forum/delete-comment?id='+id, () => {
-    ElMessage.success( '删除评论成功！')
-    loadComments( topic.page)
-  }
-)
+  apiForumCommentDelete(id, () => {
+    ElMessage.success('删除评论成功！')
+    loadComments(topic.page)
+  })
 }
 
 function updateTopic(editor) {
-  post('api/forum/update-topic',{
+  apiForumUpdateTopic({
     id: tid,
     type: editor.type.id,
     title: editor.title,

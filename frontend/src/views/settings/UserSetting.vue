@@ -2,10 +2,11 @@
 import Card from "@/components/Card.vue";
 import { Message, Refresh, Select, User } from "@element-plus/icons-vue";
 import { userStore } from "@/store";
-import { computed, reactive, ref } from "vue";
-import { accessHeader, get, post } from "@/net";
+import {computed, onMounted, reactive, ref} from "vue";
+import { accessHeader } from "@/net";
 import { ElMessage } from "element-plus";
 import axios from "axios";
+import {apiAuthAskCode, apiUserDetail, apiUserDetailSave, apiUserModifyEmail} from "@/net/api/user";
 const store = userStore();
 const registerTime = computed(() =>
   new Date(store.user.registerTime).toLocaleString()
@@ -64,35 +65,21 @@ const loading = reactive({
 });
 
 function saveDetails() {
-  baseFormRef.value.validate((isValid) => {
+  baseFormRef.value.validate(isValid => {
     if (isValid) {
-      loading.base = true;
-      post(
-        "/api/user/save-details",
-        baseForm,
-        () => {
-          ElMessage.success("用户信息保存成功");
-          store.user.username = baseForm.username;
-          desc.value = baseForm.desc;
-          loading.base = false;
-        },
-        (message) => {
-          ElMessage.warning(message);
-          loading.base = false;
-        }
-      );
+      loading.base = true
+      apiUserDetailSave(baseForm, () => {
+        ElMessage.success('用户信息保存成功')
+        store.user.usernamew = baseForm.username
+        desc.value = baseForm.desc
+        loading.base = false
+      }, message => {
+        ElMessage.warning(message)
+        loading.base = false
+      })
     }
-  });
+  })
 }
-get("/api/user/details", (data) => {
-  baseForm.username = store.user.username;
-  baseForm.gender = data.gender;
-  baseForm.phone = data.phone;
-  baseForm.wx = data.wx;
-  baseForm.qq = data.qq;
-  baseForm.desc = desc.value = data.desc;
-  loading.form = false;
-});
 
 const coldTime = ref(0);
 const isEmailValid = ref(true);
@@ -100,46 +87,30 @@ const onValidate = (prop, isValid) => {
   if (prop === "email") isEmailValid.value = isValid;
 };
 function sendEmailCode() {
-  emailFormRef.value.validate((isValid) => {
+  emailFormRef.value.validate(isValid => {
     if (isValid) {
-      coldTime.value = 60;
-      get(
-        `/api/auth/ask-code?email=${emailForm.email}&type=modify`,
-        () => {
-          ElMessage.success(
-            `验证码已成功发送到邮箱:${emailForm.email},请注意查收`
-          );
-          const handle = setInterval(() => {
-            coldTime.value--;
-            if (coldTime.value === 0) {
-              clearInterval(handle);
-            }
-          }, 1000);
-        },
-        (message) => {
-          ElMessage.warning(message);
-          coldTime.value = 0;
-        }
-      );
+      apiAuthAskCode(emailForm.email, coldTime, 'modify')
     }
-  });
+  })
 }
 
 function modifyEmail() {
-  emailFormRef.value.validate((isValid) => {
-    post("/api/user/modify-email", emailForm, () => {
-      ElMessage.success("邮箱修改成功");
-      store.user.email = emailForm.email;
-      emailForm.code = "";
-    });
-  });
+  emailFormRef.value.validate(isValid => {
+    if (isValid) {
+      apiUserModifyEmail(emailForm, () => {
+        ElMessage.success('邮件修改成功')
+        store.user.email = emailForm.email
+        emailForm.code = ''
+      })
+    }
+  })
 }
 
-function beforeAvatarUpload(rawfile) {
-  if (rawfile.type !== "image/jpeg" && rawfile.type !== "image/png") {
+function beforeAvatarUpload(rawFile) {
+  if (rawFile.type !== "image/jpeg" && rawFile.type !== "image/png") {
     ElMessage.error("头像只能是JPG/PNG格式");
     return false;
-  } else if (rawfile.size / 1024 / 1024 > 5) {
+  } else if (rawFile.size / 1024 / 1024 > 5) {
     ElMessage.error("头像大小不能大于5MB");
     return false;
   }
@@ -155,6 +126,16 @@ function uploadFail(error) {
   console.error(error);
   ElMessage.error("头像上传失败，请稍后重试");
 }
+
+onMounted(() => {
+  apiUserDetail(data => {
+    baseForm.username = store.user.username
+    baseForm.desc = desc.value = data.desc
+    Object.assign(baseForm, data)
+    emailForm.email = store.user.email
+    loading.form = false
+  })
+})
 </script>
 
 <template>

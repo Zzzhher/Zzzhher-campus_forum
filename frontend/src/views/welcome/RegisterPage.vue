@@ -213,8 +213,8 @@ const register = () => {
     } else {
       ElMessage.warning("请完整填写注册表单内容！");
     }
-  });
-};
+  })
+}
 
 const validateEmail = () => apiAuthAskCode(form.email, coldTime);
 </script>

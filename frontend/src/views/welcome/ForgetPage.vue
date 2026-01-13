@@ -208,7 +208,7 @@ const onValidate = (prop, isValid) => {
   if (prop === "email") isEmailValid.value = isValid;
 };
 
-const validateEmail = () => apiAuthAskCode(form.email, coldTime, "reset");
+const validateEmail = () => apiAuthAskCode(form.email, coldTime, 'reset');
 
 const confirmReset = () => {
   formRef.value.validate((isValid) => {

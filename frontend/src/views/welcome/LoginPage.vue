@@ -70,8 +70,7 @@
         @click="router.push('/register')"
         class="register-button"
         type="default"
-        size="large"
-      >
+        size="large">
         注册账号
       </el-button>
     </div>

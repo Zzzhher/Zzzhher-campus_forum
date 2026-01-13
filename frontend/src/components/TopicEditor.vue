@@ -6,10 +6,11 @@ import { Check, Document } from "@element-plus/icons-vue";
 import ImageResize from "quill-image-resize-vue";
 import { ImageExtend, QuillWatch } from "quill-image-super-solution-module";
 import { ElMessage } from "element-plus";
-import { accessHeader, get, post } from "@/net";
+import { accessHeader } from "@/net";
 import axios from "axios";
 import ColorDot from "@/components/ColorDot.vue";
 import {userStore} from "@/store";
+import {apiForumTopicCreate} from "@/net/api/forum";
 
 const props = defineProps({
   show: Boolean,
@@ -31,7 +32,7 @@ const props = defineProps({
   },
   submit: {
     default: (editor, success) => {
-      post('/api/forum/create-topic', {
+      apiForumTopicCreate({
         type: editor.type.id,
         title: editor.title,
         content: editor.text

@@ -17,7 +17,7 @@ import {
 import UserInfo from "@/components/UserInfo.vue";
 import {get} from "@/net";
 import {userStore} from "@/store";
-import {ref} from "vue";
+import {inject, ref} from "vue";
 const adminMenu = [
   {
     title: '校园论坛管理', icon: Location, sub: [
@@ -39,17 +39,8 @@ const adminMenu = [
   }
 ]
 
-const store = userStore()
-const loading = ref(true)
-get("/api/user/info", (data) => {
-  store.user = data
-  loading.value = false
-})
-
+const loading = inject('userLoading')
 </script>
-
-
-
 <template>
   <div class="admin-content" v-loading="loading" element-loading-text="正在进入，请耐心等待...">
     <el-container style="height: 100%">
