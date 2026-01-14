@@ -5,7 +5,7 @@ export const apiForumTypes = (success) =>
     get('/api/forum/types', success)
 
 export const apiForumTopic = (tid, success) =>
-    get(`api/forum/topic?tid=${tid}`, success)
+    get(`/api/forum/topic?tid=${tid}`, success)
 
 export const apiForumInteract = (tid, type, topic, message) => {
     get(`/api/forum/interact?tid=${tid}&type=${type}&state=${!topic[type]}`, () => {
@@ -54,13 +54,13 @@ export const apiForumTopicDelete = (tid, success) =>
     get(`/api/admin/forum/delete?tid=${tid}`, success)
 
 export const apiForumTopicTop = (data, success) =>
-    post('api/admin/forum/top', data, success)
+    post('/api/admin/forum/top', data, success)
 
 export const apiForumTopicLocked = (data, success) =>
-    post('api/admin/forum/locked', data, success)
+    post('/api/admin/forum/locked', data, success)
 
 export const apiForumTopicInvisible = (data, success) =>
-    post('api/admin/forum/invisible', data, success)
+    post('/api/admin/forum/invisible', data, success)
 
 export const apiForumProhibitedList = (success) =>
     get('/api/admin/forum/prohibited-list', success)
@@ -69,10 +69,10 @@ export const apiForumProhibit = (data, success) =>
     post(`/api/admin/forum/prohibited-save`, data, success)
 
 export const apiForumUserTopic = (success) =>
-    get('api/forum/user-topic', success)
+    get('/api/forum/user-topic', success)
 
 export const apiForumUserTopicDelete = (tid, success) =>
-    get(`api/forum/delete-topic?tid=${tid}`, success)
+    get(`/api/forum/delete-topic?tid=${tid}`, success)
 
 export const apiTopicSearch = (keyword, success) =>
     get(`/api/forum/search-topic?keyword=${keyword}`, success)
@@ -87,4 +87,4 @@ export const apiTopicTypeCreate = (data, success) =>
     post(`/api/admin/forum/create-type`, data, success)
 
 export const apiTopicChangeType = (tid, type, success) =>
-    get(`api/admin/forum/change-topic-type?tid=${tid}&type=${type}`, success)
+    get(`/api/admin/forum/change-topic-type?tid=${tid}&type=${type}`, success)

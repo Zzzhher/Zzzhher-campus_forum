@@ -29,32 +29,32 @@ const emit = defineEmits(['check'])
 
 <style scoped>
 .interact-button {
-    display: inline-block;
-    height: 20px;
+  display: inline-block;
+  height: 20px;
 
-    .name {
-        font-size: 13px;
-        margin-left: 5px;
-        opacity: 0.7;
+  .name {
+    font-size: 13px;
+    margin-left: 5px;
+    opacity: 0.7;
+  }
+
+  .icon {
+    vertical-align: middle;
+    transition: .3s;
+
+    &:hover {
+      cursor: pointer;
+      font-size: 18px;
     }
+  }
 
-    .icon {
-        vertical-align: middle;
-        transition: .3s;
+  &.locked {
+    opacity: 0.5;
 
-        &:hover {
-            cursor: pointer;
-            font-size: 18px;
-        }
+    .icon:hover {
+      font-size: unset;
+      cursor: not-allowed;
     }
-
-    &.locked {
-        opacity: 0.5;
-
-        .icon:hover {
-            font-size: unset;
-            cursor: not-allowed;
-        }
-    }
+  }
 }
 </style>

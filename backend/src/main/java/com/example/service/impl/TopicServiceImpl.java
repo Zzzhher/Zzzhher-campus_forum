@@ -19,6 +19,7 @@ import com.example.service.TopicService;
 import com.example.utils.CacheUtils;
 import com.example.utils.Const;
 import com.example.utils.FlowUtils;
+import com.example.utils.ProhibitedUtils;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.Resource;
 import org.springframework.beans.BeanUtils;
@@ -44,6 +45,9 @@ public class TopicServiceImpl extends ServiceImpl<TopicMapper, Topic> implements
 
     @Resource
     CacheUtils cacheUtils;
+
+    @Resource
+    ProhibitedUtils prohibitedUtils;
 
     @Resource
     AccountMapper accountMapper;
@@ -85,18 +89,21 @@ public class TopicServiceImpl extends ServiceImpl<TopicMapper, Topic> implements
 
     @Override
     public String createTopic(int uid, TopicCreateVO vo) {
-        if(!textLimitCheck(vo.getContent(),20000))
+        if(!textLimitCheck(vo.getContent(), 20000))
             return "文章内容太多，发文失败！";
         if(!types.contains(vo.getType()))
             return "文章类型非法！";
         String key = Const.FORUM_TOPIC_CREATE_COUNTER + uid;
-        if(!flowUtils.limitPeriodCounterCheck(key,  20,  3600))
+        if(!flowUtils.limitPeriodCounterCheck(key, 3, 3600))
             return "发文频繁，请稍后再试！";
+        if(prohibitedUtils.containsProhibitedWord(vo.getContent()))
+            return "包含违禁词，发文失败！";
         Topic topic = new Topic();
         BeanUtils.copyProperties(vo, topic);
         topic.setContent(vo.getContent().toJSONString());
         topic.setUid(uid);
         topic.setTime(new Date());
+//        topic.createIntro();
         if(this.save(topic)) {
             cacheUtils.deleteCachePattern(Const.FORUM_TOPIC_PREVIEW_CACHE + "*");
             return null;
@@ -109,17 +116,35 @@ public class TopicServiceImpl extends ServiceImpl<TopicMapper, Topic> implements
     public List<TopicPreviewVO> listTopicByPage(int pageNumber, int type) {
         String key = Const.FORUM_TOPIC_PREVIEW_CACHE + pageNumber + ":" + type;
         List<TopicPreviewVO> list = cacheUtils.takeListFromCache(key, TopicPreviewVO.class);
-        if (list != null) return list;
+        if(list != null)
+            return list;
         Page<Topic> page = Page.of(pageNumber, 10);
-        if (type == 0)
-            baseMapper.selectPage(page, Wrappers.<Topic>query().orderByDesc("time"));
+        if(type == 0)
+            baseMapper.selectPage(page, Wrappers.<Topic>query()
+                    .eq("invisible", 0)
+                    .orderByDesc("time"));
         else
-            baseMapper.selectPage(page, Wrappers.<Topic>query().eq("type", type).orderByDesc("time"));
+            baseMapper.selectPage(page, Wrappers.<Topic>query().eq("type", type)
+                    .eq("invisible", 0)
+                    .orderByDesc("time"));
         List<Topic> topics = page.getRecords();
-        if (topics.isEmpty()) return null;
+        if(topics.isEmpty()) return null;
         list = topics.stream().map(this::resolveToPreview).toList();
         cacheUtils.saveListToCache(key, list, 60);
         return list;
+    }
+
+    @Override
+    public JSONObject listAllTopicByPage(int page, int size, String keyword) {
+        Page<Topic> topicPage = baseMapper.selectPage(Page.of(page, size), Wrappers.<Topic>query()
+                .select("id", "title", "uid", "type", "time", "top", "locked", "invisible")
+                .like(keyword != null, "title", "%" + keyword + "%")
+                .orderByDesc("time"));
+        List<TopicPreviewVO> list = topicPage.getRecords().stream().map(this::resolveToPreview).toList();
+        JSONObject object = new JSONObject();
+        object.put("total", topicPage.getTotal());
+        object.put("list", list);
+        return object;
     }
 
     @Override
@@ -138,6 +163,9 @@ public class TopicServiceImpl extends ServiceImpl<TopicMapper, Topic> implements
     public TopicDetailVO getTopic(int tid, int uid) {
         TopicDetailVO vo = new TopicDetailVO();
         Topic topic = baseMapper.selectById(tid);
+        if(topic.getInvisible() == 1 && topic.getUid() != uid) {
+            return null;
+        }
         BeanUtils.copyProperties(topic, vo);
         TopicDetailVO.Interact interact = new TopicDetailVO.Interact(
                 hasInteract(tid, uid, "like"),
@@ -146,7 +174,7 @@ public class TopicServiceImpl extends ServiceImpl<TopicMapper, Topic> implements
         vo.setInteract(interact);
         TopicDetailVO.User user = new TopicDetailVO.User();
         vo.setUser(this.fillUserDetailsByPrivacy(user, topic.getUid()));
-        vo.setComments(commentMapper.selectCount(Wrappers.<TopicComment>query().eq("tid",tid)));
+        vo.setComments(commentMapper.selectCount(Wrappers.<TopicComment>query().eq("tid", tid)));
         return vo;
     }
 
@@ -180,38 +208,38 @@ public class TopicServiceImpl extends ServiceImpl<TopicMapper, Topic> implements
 
     @Override
     public String updateTopic(int uid, TopicUpdateVO vo) {
-        if(!textLimitCheck(vo.getContent(),20000))
+        if(!textLimitCheck(vo.getContent(), 20000))
             return "文章内容太多，发文失败！";
         if(!types.contains(vo.getType()))
             return "文章类型非法！";
-//        if(prohibitedUtils.containsProhibitedWord(vo.getContent()))
-//            return "包含违禁词，发文失败！";
-        baseMapper.update(null, Wrappers.<Topic>update()
+        if(prohibitedUtils.containsProhibitedWord(vo.getContent()))
+            return "包含违禁词，发文失败！";
+        int result = baseMapper.update(null, Wrappers.<Topic>update()
                 .eq("uid", uid)
                 .eq("id", vo.getId())
-//                .eq("locked", 0)
+                .eq("locked", 0)
                 .set("title", vo.getTitle())
                 .set("content", vo.getContent().toString())
                 .set("type", vo.getType())
 //                .set("intro", Topic.recreateIntro(vo.getContent()))
         );
-        return null;
+        return result > 0 ? null : "文章被锁定，无法进行修改";
     }
 
     @Override
     public String createComment(int uid, AddCommentVO vo) {
-        if (!textLimitCheck(JSONObject.parseObject(vo.getContent()),  2000)) {
-            return "评论内容太长，发表失败！";
-        }
-        String key = "CONST.FORUM_TOPIC_COMMENT_COUNTER_" + uid;
-        if (!flowUtils.limitPeriodCounterCheck(key, 2,  60)) {
+        if(!textLimitCheck(JSONObject.parseObject(vo.getContent()), 2000))
+            return "评论内容太多，发表失败！";
+        String key = Const.FORUM_TOPIC_COMMENT_COUNTER + uid;
+        if(!flowUtils.limitPeriodCounterCheck(key, 2, 60))
             return "发表评论频繁，请稍后再试！";
-        }
+        if(prohibitedUtils.containsProhibitedWord(vo.getContent()))
+            return "包含违禁词，发文失败！";
         TopicComment comment = new TopicComment();
         comment.setUid(uid);
         BeanUtils.copyProperties(vo, comment);
         comment.setTime(new Date());
-        topicCommentMapper.insert(comment);
+        commentMapper.insert(comment);
         Topic topic = baseMapper.selectById(vo.getTid());
         Account account = accountMapper.selectById(uid);
         if(vo.getQuote() > 0) {
@@ -228,7 +256,7 @@ public class TopicServiceImpl extends ServiceImpl<TopicMapper, Topic> implements
             notificationService.addNotification(
                     topic.getUid(),
                     "您有新的帖子回复",
-                    account.getUsername()+" 回复了你发表的帖子: "+topic.getTitle()+"，快去看看吧！",
+                    account.getUsername()+" 回复了你发表主题: "+topic.getTitle()+"，快去看看吧！",
                     "success", "/index/topic-detail/"+topic.getId()
             );
         }
@@ -263,6 +291,38 @@ public class TopicServiceImpl extends ServiceImpl<TopicMapper, Topic> implements
     @Override
     public void deleteComment(int id, int uid) {
         commentMapper.delete(Wrappers.<TopicComment>query().eq("id", id).eq("uid", uid));
+    }
+
+    @Override
+    public void deleteTopic(int id) {
+        baseMapper.deleteById(id);
+        cacheUtils.deleteCachePattern(Const.FORUM_TOPIC_PREVIEW_CACHE + "*");
+        baseMapper.deleteTopicCollect(id);
+    }
+
+    @Override
+    public void setTopicTop(int tid, boolean top) {
+        baseMapper.update(null, Wrappers.<Topic>update()
+                .eq("id", tid)
+                .set("top", top)
+        );
+    }
+
+    @Override
+    public void setTopicLocked(int tid, boolean locked) {
+        baseMapper.update(null, Wrappers.<Topic>update()
+                .eq("id", tid)
+                .set("locked", locked)
+        );
+    }
+
+    @Override
+    public void setTopicInvisible(int tid, boolean invisible) {
+        baseMapper.update(null, Wrappers.<Topic>update()
+                .eq("id", tid)
+                .set("invisible", invisible)
+        );
+        cacheUtils.deleteCachePattern(Const.FORUM_TOPIC_PREVIEW_CACHE + "*");
     }
 
     private boolean hasInteract(int tid, int uid, String type) {
@@ -316,14 +376,16 @@ public class TopicServiceImpl extends ServiceImpl<TopicMapper, Topic> implements
 
     private TopicPreviewVO resolveToPreview(Topic topic) {
         TopicPreviewVO vo = new TopicPreviewVO();
-        BeanUtils.copyProperties(accountMapper.selectById(topic.getUid()),vo);
+        BeanUtils.copyProperties(accountMapper.selectById(topic.getUid()), vo);
         BeanUtils.copyProperties(topic, vo);
-        vo.setLike(baseMapper.interactCount(topic.getId(),"like"));
-        vo.setCollect(baseMapper.interactCount(topic.getId(),"collect"));
+        vo.setLike(baseMapper.interactCount(topic.getId(), "like"));
+        vo.setCollect(baseMapper.interactCount(topic.getId(), "collect"));
         List<String> images = new ArrayList<>();
         StringBuilder previewText = new StringBuilder();
-        JSONArray ops = JSONObject.parseObject(topic.getContent()).getJSONArray("ops");
-        this.shortContent(ops,previewText,obj -> images.add(obj.toString()));
+        if (topic.getContent() != null) {
+            JSONArray ops = JSONObject.parseObject(topic.getContent()).getJSONArray("ops");
+            this.shortContent(ops, previewText, obj -> images.add(obj.toString()));
+        }
         vo.setText(previewText.length() > 300 ? previewText.substring(0, 300) : previewText.toString());
         vo.setImages(images);
         return vo;
