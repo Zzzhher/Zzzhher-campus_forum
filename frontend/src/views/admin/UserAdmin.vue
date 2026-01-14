@@ -1,17 +1,13 @@
 <script setup>
 import {EditPen, Unlock, User} from "@element-plus/icons-vue";
 import {reactive, ref, watchEffect} from "vue";
-import {apiUserDetailTotal, apiUserList, apiUserSave} from "@/net/api/user";
+import {apiUserList, apiUserModifyPassword} from "@/net/api/user";
 import {userStore} from "@/store";
-import {ElMessage} from "element-plus";
-
+import UserEditor from "@/components/UserEditor.vue";
+import {ElMessage, ElMessageBox} from "element-plus";
+const editorRef = ref()
 const store = userStore()
-const editor = reactive( {
-  id: 0,
-  display: false,
-  temp: {},
-  loading: false
-})
+
 const userTable = reactive({
   page: 1,
   size: 10,
@@ -30,13 +26,16 @@ function userStatus(user) {
     return '正常'
 }
 
-function openUserEditor(user) {
-  editor.id = user.id
-  editor.display = true
-  editor.loading = true
-  apiUserDetailTotal(editor.id, data => {
-    editor.temp = { ...data, ...user }
-    editor.loading = false
+function changePassword({ id, username }) {
+  ElMessageBox.prompt(`您确定要修改用户 ${username} 的密码吗，修改后用户将不能使用原密码登录？`, '修改密码', {
+    inputPattern: /^.{6,20}$/,
+    inputErrorMessage: '密码长度必须在6-20个字符之间',
+    callback: ({ action, value }) => {
+      if(action === 'confirm') {
+        apiUserModifyPassword({id, newPassword: value},
+            () => ElMessage.success('密码修改成功'))
+      }
+    }
   })
 }
 
@@ -44,15 +43,6 @@ watchEffect(() => apiUserList(userTable.page, userTable.size,  data => {
   userTable.total = data.total
   userTable.data = data.list
 }))
-
-function saveUserDetail() {
-  editor.display = false
-  apiUserSave(editor.temp, () => {
-      const user = userTable.data.find(user => user.id === editor.id)
-      Object.assign(user, editor.temp)
-      ElMessage.success({ message: '数据保存成功' })
-    })
-}
 
 </script>
 
@@ -95,9 +85,10 @@ function saveUserDetail() {
       <el-table-column label="操作" align="center" fixed="right" width="200">
         <template #default="{ row }">
           <el-button type="warning" size="small" :icon="Unlock"
+                     @click="changePassword(row)"
                      :disabled="row.role === 'admin'">修改密码</el-button>
           <el-button type="primary" size="small" :icon="EditPen"
-                     @click="openUserEditor(row)"
+                     @click="editorRef.openUserEditor(row)"
                      :disabled="row.role === 'admin'">编辑</el-button>
         </template>
       </el-table-column>
@@ -108,47 +99,7 @@ function saveUserDetail() {
                      v-model:page-size="userTable.size"
                      layout="total, sizes, prev, pager, next, jumper"/>
     </div>
-    <el-drawer v-model="editor.display">
-      <template #header>
-        <div>
-          <div style="font-weight: bold">
-            <el-icon><EditPen/></el-icon> 编辑用户信息
-          </div>
-          <div style="font-size: 13px">编辑完成后请点击下方保存按钮</div>
-        </div>
-      </template>
-      <el-form label-position="top">
-        <el-form-item label="用户名">
-          <el-input v-model="editor.temp.username"/>
-        </el-form-item>
-        <el-form-item label="电子邮件">
-          <el-input v-model="editor.temp.email"/>
-        </el-form-item>
-
-        <div style="display: flex;font-size:14px;gap: 20px">
-          <div>
-            <span style="margin-right: 10px">禁言</span>
-            <el-switch v-model="editor.temp.mute"/>
-          </div>
-          <el-divider style="height: 30px" direction="vertical"/>
-          <div>
-            <span style="margin-right: 10px">账号封禁</span>
-            <el-switch v-model="editor.temp.banned"/>
-          </div>
-        </div>
-        <div style="margin-top: 10px;color: #606266;font-size: 14px">
-          注册时间: {{ new Date(editor.temp.registerTime).toLocaleString() }}
-        </div>
-        <el-divider/>
-      </el-form>
-      <template #footer>
-        <div style="text-align: center">
-          <el-button type="success" @click="saveUserDetail">保存</el-button>
-          <el-button type="info" @click="editor.display = false">取消</el-button>
-        </div>
-      </template>
-
-    </el-drawer>
+    <user-editor :user-table="userTable" ref="editorRef"/>
   </div>
 </template>
 
