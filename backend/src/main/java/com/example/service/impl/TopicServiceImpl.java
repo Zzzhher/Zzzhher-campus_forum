@@ -9,10 +9,7 @@ import com.example.entity.dto.*;
 import com.example.entity.vo.request.AddCommentVO;
 import com.example.entity.vo.request.TopicCreateVO;
 import com.example.entity.vo.request.TopicUpdateVO;
-import com.example.entity.vo.response.CommentVO;
-import com.example.entity.vo.response.TopicDetailVO;
-import com.example.entity.vo.response.TopicPreviewVO;
-import com.example.entity.vo.response.TopicTopVO;
+import com.example.entity.vo.response.*;
 import com.example.mapper.*;
 import com.example.service.NotificationService;
 import com.example.service.TopicService;
@@ -323,6 +320,28 @@ public class TopicServiceImpl extends ServiceImpl<TopicMapper, Topic> implements
                 .set("invisible", invisible)
         );
         cacheUtils.deleteCachePattern(Const.FORUM_TOPIC_PREVIEW_CACHE + "*");
+    }
+
+    @Override
+    public List<Topic> listTopicByUser(int uid) {
+        return baseMapper.selectList(Wrappers.<Topic>query().eq("uid", uid));
+    }
+
+    @Override
+    public List<TopicSearchVO> searchTopic(String keyword) {
+        return List.of();
+    }
+
+    @Override
+    public void deleteTopic(int tid, int uid) {
+        int result = baseMapper.delete(Wrappers.<Topic>query()
+                .eq("id", tid)
+                .eq("uid", uid)
+        );
+        if(result > 0) {
+            cacheUtils.deleteCachePattern(Const.FORUM_TOPIC_PREVIEW_CACHE + "*");
+            baseMapper.deleteTopicCollect(tid);
+        }
     }
 
     private boolean hasInteract(int tid, int uid, String type) {
