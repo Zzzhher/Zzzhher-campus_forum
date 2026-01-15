@@ -1,6 +1,7 @@
 package com.example.controller;
 
 import com.alibaba.fastjson2.JSONObject;
+import com.example.entity.PageRestBean;
 import com.example.entity.RestBean;
 import com.example.entity.dto.Account;
 import com.example.entity.dto.Interact;
@@ -130,8 +131,10 @@ public class ForumController {
     }
 
     @GetMapping("/user-topic")
-    public RestBean<List<Topic>> userTopic(@RequestAttribute(Const.ATTR_USER_ID) int uid) {
-        return RestBean.success(topicService.listTopicByUser(uid));
+    public PageRestBean<Topic> userTopic(@RequestAttribute(Const.ATTR_USER_ID) int uid, 
+                                         @RequestParam int page,
+                                         @RequestParam int size) {
+        return PageRestBean.success(topicService.listTopicByUser(uid, page, size));
     }
 
     @GetMapping("/delete-topic")

@@ -1,68 +1,123 @@
 <script setup>
-import {apiForumUserTopic, apiForumUserTopicDelete} from "@/net/api/forum";
-import {ref} from "vue";
+import {
+  apiForumUserTopic,
+  apiForumUserTopicDelete,
+  apiForumTypes,
+} from "@/net/api/forum";
+import { reactive, watchEffect } from "vue";
 import Card from "@/components/Card.vue";
 import TopicTag from "@/components/TopicTag.vue";
-import {Clock, Delete, Hide, Lock} from "@element-plus/icons-vue";
-import {ElMessage, ElMessageBox} from "element-plus";
+import { Clock, Delete, Hide, Lock } from "@element-plus/icons-vue";
+import { ElMessage, ElMessageBox } from "element-plus";
+import { userStore } from "@/store";
 
-const list = ref([])
+const store = userStore();
+
+const topicList = reactive({
+  list: [],
+  total: 0,
+  page: 1,
+  size: 10,
+});
+
+// 加载论坛类型数据
+apiForumTypes((data) => {
+  const array = [];
+  array.push({
+    name: "全部",
+    id: 0,
+    color: "linear-gradient(45deg, white, red, orange, gold, green, blue)",
+  });
+  data.forEach((d) => array.push(d));
+  store.forum.types = array;
+});
 
 const deleteTopic = (id) => {
-  ElMessageBox.confirm('删除后帖子将永远无法找回，您确定要这样做吗？', '删除帖子', {
-    callback: value => {
-      if(value === 'confirm') {
-        apiForumUserTopicDelete(id, () => {
-          ElMessage.success('帖子删除成功')
-          refreshList()
-        })
-      }
+  ElMessageBox.confirm(
+    "删除后帖子将永远无法找回，您确定要这样做吗？",
+    "删除帖子",
+    {
+      callback: (value) => {
+        if (value === "confirm") {
+          apiForumUserTopicDelete(id, () => {
+            ElMessage.success("帖子删除成功");
+            refreshList();
+          });
+        }
+      },
     }
-  })
-}
+  );
+};
 
-const refreshList = () => apiForumUserTopic(data => list.value = data)
+const refreshList = () => {
+  apiForumUserTopic(topicList.page, topicList.size, (data) => {
+    topicList.list = data.list;
+    topicList.total = data.total;
+  });
+};
 
-refreshList()
+watchEffect(() => refreshList());
 </script>
 
 <template>
-  <div style="margin: auto;max-width: 700px">
+  <div style="margin: auto; max-width: 700px">
     <div class="topic-list">
-      <card v-for="topic in list">
+      <card v-for="topic in topicList.list">
         <div class="title">
-          <el-tag size="small" effect="dark" type="info" disable-transitions
-                  style="margin-right: 10px" v-if="topic.locked">
+          <el-tag
+            size="small"
+            effect="dark"
+            type="info"
+            disable-transitions
+            style="margin-right: 10px"
+            v-if="topic.locked"
+          >
             <el-icon>
-              <Hide/>
+              <Hide />
             </el-icon>
             屏蔽
           </el-tag>
-          <el-tag size="small" effect="dark" type="warning" disable-transitions
-                  style="margin-right: 10px" v-if="topic.locked">
+          <el-tag
+            size="small"
+            effect="dark"
+            type="warning"
+            disable-transitions
+            style="margin-right: 10px"
+            v-if="topic.locked"
+          >
             <el-icon>
-              <Lock/>
+              <Lock />
             </el-icon>
             已锁定
           </el-tag>
-          <topic-tag style="margin-right: 10px" :type="topic.type"/>
-          <el-link :href="`/index/topic-detail/${topic.id}`">{{ topic.title }}</el-link>
+          <topic-tag style="margin-right: 10px" :type="topic.type" />
+          <el-link :href="`/index/topic-detail/${topic.id}`">{{
+            topic.title
+          }}</el-link>
         </div>
         <div class="content">
-          <div style="font-size: 12px;color: gray">
+          <div style="font-size: 12px; color: gray">
             <el-icon>
-              <Clock/>
+              <Clock />
             </el-icon>
-            <div style="margin-left: 2px;display: inline-block">
+            <div style="margin-left: 2px; display: inline-block">
               {{ new Date(topic.time).toLocaleString() }}
             </div>
           </div>
           <el-link @click="deleteTopic(topic.id)" type="danger">
-            <el-icon><Delete/></el-icon>&nbsp;
+            <el-icon><Delete /></el-icon>&nbsp;
             <span>删除帖子</span>
           </el-link>
         </div>
       </card>
+    </div>
+    <div class="pagination">
+      <el-pagination
+        :total="topicList.total"
+        v-model:current-page="topicList.page"
+        v-model:page-size="topicList.size"
+        layout="total, sizes, prev, pager, next, jumper"
+      />
     </div>
   </div>
 </template>
@@ -79,5 +134,11 @@ refreshList()
     justify-content: space-between;
     margin-top: 10px;
   }
+}
+
+.pagination {
+  margin-top: 20px;
+  display: flex;
+  justify-content: center;
 }
 </style>

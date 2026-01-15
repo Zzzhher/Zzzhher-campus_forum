@@ -323,8 +323,10 @@ public class TopicServiceImpl extends ServiceImpl<TopicMapper, Topic> implements
     }
 
     @Override
-    public List<Topic> listTopicByUser(int uid) {
-        return baseMapper.selectList(Wrappers.<Topic>query().eq("uid", uid));
+    public Page<Topic> listTopicByUser(int uid, int page, int size) {
+        return baseMapper.selectPage(Page.of(page, size, true), 
+                Wrappers.<Topic>query().eq("uid", uid)
+                                      .orderByDesc("id"));
     }
 
     @Override

@@ -1,5 +1,6 @@
 package com.example.service;
 import com.alibaba.fastjson2.JSONObject;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.example.entity.dto.Interact;
 import com.example.entity.dto.Topic;
@@ -29,7 +30,7 @@ public interface TopicService extends IService<Topic> {
     void setTopicTop(int tid, boolean top);
     void setTopicLocked(int tid, boolean locked);
     void setTopicInvisible(int tid, boolean invisible);
-    List<Topic> listTopicByUser(int uid);
+    Page<Topic> listTopicByUser(int uid, int page, int size);
     List<TopicSearchVO> searchTopic(String keyword);
     void deleteTopic(int tid, int uid);
 }

@@ -52,5 +52,9 @@ spring:
   weather:
     key: dbd7383a6fce44f48313afd8ba1d8843
     apihost: nu3qqpjw8a.re.qweatherapi.com
+  ai:
+    deepseek:
+      api-key: 'agent-aed7042b09d4b6c9bddf02a87c238154'
+      base-url: 'http://localhost:8099/chat/api/019bc0dc-8c8a-7272-ba45-1f1114e76877'
 
 

@@ -20,7 +20,7 @@ public class EmailAdminController {
 
     @GetMapping("/list")
     public PageRestBean<EmailRecord> listEmailRecord(@RequestParam int page,
-                                        @RequestParam int size){
+                                                     @RequestParam int size){
         return PageRestBean.success(service.listEmailRecord(page, size));
     }
 
