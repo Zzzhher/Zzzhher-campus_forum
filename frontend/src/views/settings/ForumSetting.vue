@@ -20,18 +20,6 @@ const topicList = reactive({
   size: 10,
 });
 
-// 加载论坛类型数据
-apiForumTypes((data) => {
-  const array = [];
-  array.push({
-    name: "全部",
-    id: 0,
-    color: "linear-gradient(45deg, white, red, orange, gold, green, blue)",
-  });
-  data.forEach((d) => array.push(d));
-  store.forum.types = array;
-});
-
 const deleteTopic = (id) => {
   ElMessageBox.confirm(
     "删除后帖子将永远无法找回，您确定要这样做吗？",

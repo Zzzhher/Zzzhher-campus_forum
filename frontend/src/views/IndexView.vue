@@ -1,5 +1,4 @@
 <script setup>
-import {get} from '@/net'
 import {inject, reactive, ref} from "vue";
 import {
   Bell,
@@ -15,7 +14,11 @@ import LightCard from "@/components/LightCard.vue";
 import UserInfo from "@/components/UserInfo.vue";
 import {apiNotificationDelete, apiNotificationDeleteAll, apiNotificationList} from "@/net/api/user";
 import AiChatWindow from "@/components/AiChatWindow.vue";
-
+import {apiForumTypes, apiTopicSearch} from "@/net/api/forum";
+import TopicTag from "@/components/TopicTag.vue";
+import {userStore} from "@/store";
+import router from "@/router";
+const store = userStore()
 const userMenu = [
   {
     title: '校园论坛', icon: Location, sub: [
@@ -54,6 +57,19 @@ const loadNotification =
     () => apiNotificationList(data => notification.value = data)
 loadNotification()
 
+const searchTopic = (keyword, callback) => {
+  if(!keyword) {
+    return
+  }
+  apiTopicSearch(keyword, data => {
+    callback(data)
+  })
+}
+
+const toTopic = ({ id }) => {
+  router.push('/index/topic-detail/'+id)
+}
+
 function confirmNotification(id, url) {
   apiNotificationDelete(id, () => {
     loadNotification()
@@ -64,6 +80,13 @@ function confirmNotification(id, url) {
 function deleteAllNotification() {
   apiNotificationDeleteAll(loadNotification)
 }
+
+apiForumTypes( data => {
+  const array = []
+  array.push({name: '全部', id: 0, color: 'linear-gradient(45deg, white, red, orange, gold, green, blue)'})
+  data.forEach(d => array.push(d))
+  store.forum.types = array
+})
 </script>
 
 <template>
@@ -75,9 +98,27 @@ function deleteAllNotification() {
           <el-image class="logo" src="https://element-plus.org/images/element-plus-logo.svg"/>
         </div>
         <div style="flex: 1;padding: 0 20px; text-align: center">
-          <el-input v-model="searchInput.text" style="width: 100%;max-width: 500px" placeholder="搜你想看的...">
+          <el-autocomplete v-model="searchInput.text" style="width: 100%;max-width: 500px"
+                           fit-input-width
+                           :fetch-suggestions="searchTopic"
+                           @select="toTopic"
+                           placeholder="搜索论坛相关内容...">
             <template #prefix>
               <el-icon><Search/></el-icon>
+            </template>
+            <template #default="{ item }">
+              <div class="search-item">
+                <div class="title" v-if="item.highlight.title">
+                  <topic-tag style="margin-right: 10px;" :type="item.type"/>
+                  <span v-html="item.highlight.title"></span>
+                </div>
+                <div class="title" v-else>
+                  <topic-tag style="margin-right: 10px;" :type="item.type"/>
+                  <span>{{ item.title }}</span>
+                </div>
+                <div class="desc" v-if="item.highlight.intro" v-html="item.highlight.intro"></div>
+                <div class="desc" v-else>{{ item.intro }}</div>
+              </div>
             </template>
             <template #append>
               <el-select style="width: 120px" v-model="searchInput.type">
@@ -87,7 +128,7 @@ function deleteAllNotification() {
                 <el-option value="4" label="失物招领"/>
               </el-select>
             </template>
-          </el-input>
+          </el-autocomplete>
         </div>
         <user-info>
           <el-popover placement="bottom" :width="350" trigger="click">
@@ -165,6 +206,36 @@ function deleteAllNotification() {
 
 
 <style lang="less" scoped>
+.search-item {
+  line-height: 1.5;
+  padding: 10px 0;
+
+  :deep(em) {
+    color: #1a1a1a;
+    background-color: yellow;
+    font-style: normal;
+  }
+
+  .title {
+    font-size: 15px;
+    font-weight: bold;
+    margin-bottom: 5px;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1;
+    overflow: hidden;
+  }
+
+  .desc {
+    font-size: 13px;
+    white-space: pre-wrap;
+    color: gray;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+  }
+}
 
 .notification-item {
   transition: .3s;
@@ -174,14 +245,13 @@ function deleteAllNotification() {
   }
 }
 
-
 .notification {
   font-size: 22px;
   line-height: 14px;
   text-align: center;
   transition: color .3s;
 
-  &hover {
+  &:hover {
     color: grey;
     cursor: pointer;
   }
@@ -191,6 +261,7 @@ function deleteAllNotification() {
   padding: 0;
   background-color: #f7f8fa;
 }
+
 .dark .main-content-page {
   background-color: #212225;
 }
@@ -229,6 +300,7 @@ function deleteAllNotification() {
         font-weight: bold;
         line-height: 20px;
       }
+
       :last-child {
         font-size: 10px;
         color: grey;

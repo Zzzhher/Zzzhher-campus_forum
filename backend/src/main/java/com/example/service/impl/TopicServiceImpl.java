@@ -6,11 +6,13 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.example.entity.dto.*;
+import com.example.entity.es.TopicDocument;
 import com.example.entity.vo.request.AddCommentVO;
 import com.example.entity.vo.request.TopicCreateVO;
 import com.example.entity.vo.request.TopicUpdateVO;
 import com.example.entity.vo.response.*;
 import com.example.mapper.*;
+import com.example.repository.TopicRepository;
 import com.example.service.NotificationService;
 import com.example.service.TopicService;
 import com.example.utils.CacheUtils;
@@ -20,6 +22,7 @@ import com.example.utils.ProhibitedUtils;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.Resource;
 import org.springframework.beans.BeanUtils;
+import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.core.parameters.P;
 import org.springframework.stereotype.Service;
@@ -66,6 +69,9 @@ public class TopicServiceImpl extends ServiceImpl<TopicMapper, Topic> implements
     @Resource
     NotificationService notificationService;
 
+    @Resource
+    TopicRepository topicRepository;
+
 
 
     private  Set<Integer> types = null;
@@ -100,7 +106,7 @@ public class TopicServiceImpl extends ServiceImpl<TopicMapper, Topic> implements
         topic.setContent(vo.getContent().toJSONString());
         topic.setUid(uid);
         topic.setTime(new Date());
-//        topic.createIntro();
+        topic.createIntro();
         if(this.save(topic)) {
             cacheUtils.deleteCachePattern(Const.FORUM_TOPIC_PREVIEW_CACHE + "*");
             return null;
@@ -218,7 +224,7 @@ public class TopicServiceImpl extends ServiceImpl<TopicMapper, Topic> implements
                 .set("title", vo.getTitle())
                 .set("content", vo.getContent().toString())
                 .set("type", vo.getType())
-//                .set("intro", Topic.recreateIntro(vo.getContent()))
+                .set("intro", Topic.recreateIntro(vo.getContent()))
         );
         return result > 0 ? null : "文章被锁定，无法进行修改";
     }
@@ -324,14 +330,20 @@ public class TopicServiceImpl extends ServiceImpl<TopicMapper, Topic> implements
 
     @Override
     public Page<Topic> listTopicByUser(int uid, int page, int size) {
-        return baseMapper.selectPage(Page.of(page, size, true), 
+        return baseMapper.selectPage(Page.of(page, size, true),
                 Wrappers.<Topic>query().eq("uid", uid)
                                       .orderByDesc("id"));
     }
 
     @Override
     public List<TopicSearchVO> searchTopic(String keyword) {
-        return List.of();
+        List<SearchHit<TopicDocument>> list = topicRepository.findByTitleOrIntro(keyword);
+        return list.stream().map(item -> {
+            TopicSearchVO vo = new TopicSearchVO();
+            BeanUtils.copyProperties(item.getContent(), vo);
+            vo.setHighlight(item.getHighlightFields());
+            return vo;
+        }).toList();
     }
 
     @Override
