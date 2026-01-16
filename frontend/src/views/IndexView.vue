@@ -102,7 +102,7 @@ apiForumTypes( data => {
                            fit-input-width
                            :fetch-suggestions="searchTopic"
                            @select="toTopic"
-                           placeholder="搜索论坛相关内容...">
+                           placeholder="搜你想看的...">
             <template #prefix>
               <el-icon><Search/></el-icon>
             </template>

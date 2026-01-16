@@ -44,7 +44,22 @@ public class WeatherServiceImpl implements WeatherService {
                 "https://" + apiHost + "/geo/v2/city/lookup?location="+longitude+","+latitude+"&key="+key, byte[].class));
         if(geo == null) return null;
         JSONObject location = geo.getJSONArray("location").getJSONObject(0);
-        int id = location.getInteger("id");
+        // 处理十六进制格式的location id
+        String idStr = location.getString("id");
+        int id;
+        try {
+            // 先尝试十进制解析
+            id = Integer.parseInt(idStr);
+        } catch (NumberFormatException e1) {
+            try {
+                // 如果十进制解析失败，尝试十六进制解析
+                id = Integer.parseInt(idStr, 16);
+            } catch (NumberFormatException e2) {
+                // 如果两种格式都解析失败，记录错误并返回null
+                log.error("Failed to parse location id: {}", idStr, e2);
+                return null;
+            }
+        }
         String key = Const.FORUM_WEATHER_CACHE +id;
         String cache = template.opsForValue().get(key);
         if(cache != null)
