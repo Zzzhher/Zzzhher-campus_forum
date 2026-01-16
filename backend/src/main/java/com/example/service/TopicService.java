@@ -7,6 +7,7 @@ import com.example.entity.dto.Topic;
 import com.example.entity.dto.TopicType;
 import com.example.entity.vo.request.AddCommentVO;
 import com.example.entity.vo.request.TopicCreateVO;
+import com.example.entity.vo.request.TopicTypeCreateVO;
 import com.example.entity.vo.request.TopicUpdateVO;
 import com.example.entity.vo.response.*;
 
@@ -33,4 +34,8 @@ public interface TopicService extends IService<Topic> {
     Page<Topic> listTopicByUser(int uid, int page, int size);
     List<TopicSearchVO> searchTopic(String keyword);
     void deleteTopic(int tid, int uid);
+    void updateTopicType(TopicTypeVO vo);
+    void deleteTopicType(int id);
+    void createTopicType(TopicTypeCreateVO vo);
+    void changeTopicType(int tid, int type);
 }

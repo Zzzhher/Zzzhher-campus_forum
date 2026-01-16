@@ -9,6 +9,7 @@ import com.example.entity.dto.*;
 import com.example.entity.es.TopicDocument;
 import com.example.entity.vo.request.AddCommentVO;
 import com.example.entity.vo.request.TopicCreateVO;
+import com.example.entity.vo.request.TopicTypeCreateVO;
 import com.example.entity.vo.request.TopicUpdateVO;
 import com.example.entity.vo.response.*;
 import com.example.mapper.*;
@@ -355,6 +356,39 @@ public class TopicServiceImpl extends ServiceImpl<TopicMapper, Topic> implements
         if(result > 0) {
             cacheUtils.deleteCachePattern(Const.FORUM_TOPIC_PREVIEW_CACHE + "*");
             baseMapper.deleteTopicCollect(tid);
+        }
+    }
+
+    @Override
+    public void updateTopicType(TopicTypeVO vo) {
+        TopicType topicType = mapper.selectById(vo.getId());
+        BeanUtils.copyProperties(vo, topicType);
+        mapper.updateById(topicType);
+    }
+
+    @Override
+    public void deleteTopicType(int id) {
+        TopicType type = mapper.selectById(id);
+        if(mapper.deleteById(id) > 0) {
+            List<Topic> list = baseMapper.selectList(Wrappers.<Topic>query().eq("type", type.getId()));
+            list.forEach(topic -> deleteTopic(topic.getId()));
+        }
+    }
+
+    @Override
+    public void createTopicType(TopicTypeCreateVO vo) {
+        TopicType type = new TopicType();
+        BeanUtils.copyProperties(vo, type);
+        mapper.insert(type);
+    }
+
+    @Override
+    public void changeTopicType(int tid, int type) {
+        if(baseMapper.update(null, Wrappers.<Topic>update()
+                .eq("id", tid)
+                .set("type", type)
+        ) > 1) {
+            cacheUtils.deleteCachePattern(Const.FORUM_TOPIC_PREVIEW_CACHE + "*");
         }
     }
 
