@@ -10,10 +10,13 @@ import java.util.function.Supplier;
  */
 @Component
 public class ControllerUtils {
-    public  <T> RestBean<T> messageHandle(Supplier<String> action){
+    public <T> RestBean<T> messageHandle(Supplier<String> action) {
         String message = action.get();
-        if(message == null)
+        if (message == null)
             return RestBean.success();
+        else if (message.contains("等待审核"))
+            // 等待审核的消息视为成功，将消息作为data返回
+            return RestBean.success((T) message);
         else
             return RestBean.failure(400, message);
     }

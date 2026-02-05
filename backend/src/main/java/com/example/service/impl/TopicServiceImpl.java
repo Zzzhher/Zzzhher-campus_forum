@@ -20,6 +20,7 @@ import com.example.utils.CacheUtils;
 import com.example.utils.Const;
 import com.example.utils.FlowUtils;
 import com.example.utils.ProhibitedUtils;
+import com.example.utils.AiServiceUtils;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.Resource;
 import org.springframework.beans.BeanUtils;
@@ -59,9 +60,6 @@ public class TopicServiceImpl extends ServiceImpl<TopicMapper, Topic> implements
     AccountPrivacyMapper accountPrivacyMapper;
 
     @Resource
-    TopicCommentMapper topicCommentMapper;
-
-    @Resource
     TopicCommentMapper commentMapper;
 
     @Resource
@@ -73,9 +71,10 @@ public class TopicServiceImpl extends ServiceImpl<TopicMapper, Topic> implements
     @Resource
     TopicRepository topicRepository;
 
+    @Resource
+    AiServiceUtils aiServiceUtils;
 
-
-    private  Set<Integer> types = null;
+    private Set<Integer> types = null;
 
     @PostConstruct
     private void initTypes() {
@@ -85,7 +84,6 @@ public class TopicServiceImpl extends ServiceImpl<TopicMapper, Topic> implements
                 .collect(Collectors.toSet());
     }
 
-
     @Override
     public List<TopicType> listTypes() {
         return mapper.selectList(null);
@@ -93,24 +91,52 @@ public class TopicServiceImpl extends ServiceImpl<TopicMapper, Topic> implements
 
     @Override
     public String createTopic(int uid, TopicCreateVO vo) {
-        if(!textLimitCheck(vo.getContent(), 20000))
+        if (!textLimitCheck(vo.getContent(), 20000))
             return "文章内容太多，发文失败！";
-        if(!types.contains(vo.getType()))
+        if (!types.contains(vo.getType()))
             return "文章类型非法！";
         String key = Const.FORUM_TOPIC_CREATE_COUNTER + uid;
-        if(!flowUtils.limitPeriodCounterCheck(key, 3, 3600))
+        if (!flowUtils.limitPeriodCounterCheck(key, 3, 3600))
             return "发文频繁，请稍后再试！";
-        if(prohibitedUtils.containsProhibitedWord(vo.getContent()))
+
+        // 提取纯文本内容进行AI审核（优先），包括标题
+        String titleText = vo.getTitle();
+        String contentText = extractPlainText(vo.getContent().toJSONString());
+        String plainText = titleText + " " + contentText;
+
+        // 违禁词检查作为兜底措施，包括标题
+        if (prohibitedUtils.containsProhibitedWord(vo.getTitle())
+                || prohibitedUtils.containsProhibitedWord(vo.getContent()))
             return "包含违禁词，发文失败！";
+
         Topic topic = new Topic();
         BeanUtils.copyProperties(vo, topic);
         topic.setContent(vo.getContent().toJSONString());
         topic.setUid(uid);
         topic.setTime(new Date());
+        topic.setStatus(0); // 默认设置为正常状态
         topic.createIntro();
-        if(this.save(topic)) {
+
+        boolean needReview = false;
+        if (!plainText.isEmpty()) {
+            // 调用AI服务进行内容审核
+            JSONObject moderationResult = aiServiceUtils.moderateContent(plainText);
+            // 获取审核决策
+            AiServiceUtils.ModerationDecision decision = aiServiceUtils.getModerationDecision(moderationResult);
+
+            // 根据审核决策处理
+            if (decision == AiServiceUtils.ModerationDecision.BLOCK) {
+                return "帖子内容不符合规范，发表失败！";
+            } else if (decision == AiServiceUtils.ModerationDecision.MANUAL_REVIEW) {
+                // 对于需要人工审核的内容，标记为待审核状态
+                topic.setStatus(1);
+                needReview = true;
+            }
+        }
+
+        if (this.save(topic)) {
             cacheUtils.deleteCachePattern(Const.FORUM_TOPIC_PREVIEW_CACHE + "*");
-            return null;
+            return needReview ? "帖子已提交，等待审核" : null;
         } else {
             return "内部错误，请联系管理员！";
         }
@@ -120,19 +146,22 @@ public class TopicServiceImpl extends ServiceImpl<TopicMapper, Topic> implements
     public List<TopicPreviewVO> listTopicByPage(int pageNumber, int type) {
         String key = Const.FORUM_TOPIC_PREVIEW_CACHE + pageNumber + ":" + type;
         List<TopicPreviewVO> list = cacheUtils.takeListFromCache(key, TopicPreviewVO.class);
-        if(list != null)
+        if (list != null)
             return list;
         Page<Topic> page = Page.of(pageNumber, 10);
-        if(type == 0)
+        if (type == 0)
             baseMapper.selectPage(page, Wrappers.<Topic>query()
                     .eq("invisible", 0)
+                    .eq("status", 0) // 只显示正常状态的帖子
                     .orderByDesc("time"));
         else
             baseMapper.selectPage(page, Wrappers.<Topic>query().eq("type", type)
                     .eq("invisible", 0)
+                    .eq("status", 0) // 只显示正常状态的帖子
                     .orderByDesc("time"));
         List<Topic> topics = page.getRecords();
-        if(topics.isEmpty()) return null;
+        if (topics.isEmpty())
+            return null;
         list = topics.stream().map(this::resolveToPreview).toList();
         cacheUtils.saveListToCache(key, list, 60);
         return list;
@@ -167,14 +196,13 @@ public class TopicServiceImpl extends ServiceImpl<TopicMapper, Topic> implements
     public TopicDetailVO getTopic(int tid, int uid) {
         TopicDetailVO vo = new TopicDetailVO();
         Topic topic = baseMapper.selectById(tid);
-        if(topic.getInvisible() == 1 && topic.getUid() != uid) {
+        if (topic.getInvisible() == 1 && topic.getUid() != uid) {
             return null;
         }
         BeanUtils.copyProperties(topic, vo);
         TopicDetailVO.Interact interact = new TopicDetailVO.Interact(
                 hasInteract(tid, uid, "like"),
-                hasInteract(tid, uid, "collect")
-        );
+                hasInteract(tid, uid, "collect"));
         vo.setInteract(interact);
         TopicDetailVO.User user = new TopicDetailVO.User();
         vo.setUser(this.fillUserDetailsByPrivacy(user, topic.getUid()));
@@ -212,11 +240,11 @@ public class TopicServiceImpl extends ServiceImpl<TopicMapper, Topic> implements
 
     @Override
     public String updateTopic(int uid, TopicUpdateVO vo) {
-        if(!textLimitCheck(vo.getContent(), 20000))
+        if (!textLimitCheck(vo.getContent(), 20000))
             return "文章内容太多，发文失败！";
-        if(!types.contains(vo.getType()))
+        if (!types.contains(vo.getType()))
             return "文章类型非法！";
-        if(prohibitedUtils.containsProhibitedWord(vo.getContent()))
+        if (prohibitedUtils.containsProhibitedWord(vo.getContent()))
             return "包含违禁词，发文失败！";
         int result = baseMapper.update(null, Wrappers.<Topic>update()
                 .eq("uid", uid)
@@ -225,61 +253,116 @@ public class TopicServiceImpl extends ServiceImpl<TopicMapper, Topic> implements
                 .set("title", vo.getTitle())
                 .set("content", vo.getContent().toString())
                 .set("type", vo.getType())
-                .set("intro", Topic.recreateIntro(vo.getContent()))
-        );
+                .set("intro", Topic.recreateIntro(vo.getContent())));
         return result > 0 ? null : "文章被锁定，无法进行修改";
     }
 
     @Override
     public String createComment(int uid, AddCommentVO vo) {
-        if(!textLimitCheck(JSONObject.parseObject(vo.getContent()), 2000))
+        if (!textLimitCheck(JSONObject.parseObject(vo.getContent()), 2000))
             return "评论内容太多，发表失败！";
         String key = Const.FORUM_TOPIC_COMMENT_COUNTER + uid;
-        if(!flowUtils.limitPeriodCounterCheck(key, 2, 60))
+        if (!flowUtils.limitPeriodCounterCheck(key, 7, 60))
             return "发表评论频繁，请稍后再试！";
-        if(prohibitedUtils.containsProhibitedWord(vo.getContent()))
+
+        // 提取纯文本内容进行AI审核（优先）
+        String plainText = extractPlainText(vo.getContent());
+
+        // 违禁词检查作为兜底措施
+        if (prohibitedUtils.containsProhibitedWord(vo.getContent()))
             return "包含违禁词，发文失败！";
+
         TopicComment comment = new TopicComment();
         comment.setUid(uid);
         BeanUtils.copyProperties(vo, comment);
         comment.setTime(new Date());
+        comment.setStatus(0); // 默认设置为正常状态
+
+        boolean needReview = false;
+        if (!plainText.isEmpty()) {
+            // 调用AI服务进行内容审核
+            JSONObject moderationResult = aiServiceUtils.moderateContent(plainText);
+            // 获取审核决策
+            AiServiceUtils.ModerationDecision decision = aiServiceUtils.getModerationDecision(moderationResult);
+
+            // 根据审核决策处理
+            if (decision == AiServiceUtils.ModerationDecision.BLOCK) {
+                return "评论内容不符合规范，发表失败！";
+            } else if (decision == AiServiceUtils.ModerationDecision.MANUAL_REVIEW) {
+                // 对于需要人工审核的内容，标记为待审核状态
+                comment.setStatus(1);
+                needReview = true;
+            }
+        }
+
         commentMapper.insert(comment);
+        cacheUtils.deleteCachePattern(Const.FORUM_TOPIC_PREVIEW_CACHE + "*");
         Topic topic = baseMapper.selectById(vo.getTid());
         Account account = accountMapper.selectById(uid);
-        if(vo.getQuote() > 0) {
+        if (vo.getQuote() > 0) {
             TopicComment com = commentMapper.selectById(vo.getQuote());
-            if(!Objects.equals(account.getId(), com.getUid())) {
+            if (!Objects.equals(account.getId(), com.getUid())) {
                 notificationService.addNotification(
                         com.getUid(),
                         "您有新的帖子评论回复",
-                        account.getUsername()+" 回复了你发表的评论，快去看看吧！",
-                        "success", "/index/topic-detail/"+com.getTid()
-                );
+                        account.getUsername() + " 回复了你发表的评论，快去看看吧！",
+                        "success", "/index/topic-detail/" + com.getTid());
             }
         } else if (!Objects.equals(account.getId(), topic.getUid())) {
             notificationService.addNotification(
                     topic.getUid(),
                     "您有新的帖子回复",
-                    account.getUsername()+" 回复了你发表主题: "+topic.getTitle()+"，快去看看吧！",
-                    "success", "/index/topic-detail/"+topic.getId()
-            );
+                    account.getUsername() + " 回复了你发表主题: " + topic.getTitle() + "，快去看看吧！",
+                    "success", "/index/topic-detail/" + topic.getId());
         }
-        return null;
+        return needReview ? "评论已提交，等待审核" : null;
     }
+
+    /**
+     * 从富文本内容中提取纯文本
+     * 
+     * @param content 富文本内容（JSON格式）
+     * @return 纯文本
+     */
+    private String extractPlainText(String content) {
+        try {
+            JSONObject contentObj = JSONObject.parseObject(content);
+            JSONArray ops = contentObj.getJSONArray("ops");
+            StringBuilder plainText = new StringBuilder();
+
+            for (Object op : ops) {
+                JSONObject opObj = (JSONObject) op;
+                Object insert = opObj.get("insert");
+                if (insert instanceof String) {
+                    plainText.append(insert);
+                }
+            }
+
+            return plainText.toString();
+        } catch (Exception e) {
+            return content;
+        }
+    }
+
     @Override
     public List<CommentVO> comments(int tid, int pageNumber) {
         Page<TopicComment> page = Page.of(pageNumber, 10);
-        commentMapper.selectPage(page, Wrappers.<TopicComment>query().eq("tid", tid));
+        commentMapper.selectPage(page, Wrappers.<TopicComment>query()
+                .eq("tid", tid)
+                .eq("status", 0)); // 只显示正常状态的评论
         return page.getRecords().stream().map(dto -> {
             CommentVO vo = new CommentVO();
             BeanUtils.copyProperties(dto, vo);
-            if(dto.getQuote() > 0) {
+            if (dto.getQuote() > 0) {
                 TopicComment comment = commentMapper.selectOne(Wrappers.<TopicComment>query()
-                        .eq("id", dto.getQuote()).orderByAsc("time"));
-                if(comment != null) {
+                        .eq("id", dto.getQuote())
+                        .eq("status", 0) // 只显示正常状态的评论
+                        .orderByAsc("time"));
+                if (comment != null) {
                     JSONObject object = JSONObject.parseObject(comment.getContent());
                     StringBuilder builder = new StringBuilder();
-                    this.shortContent(object.getJSONArray("ops"), builder, ignore -> {});
+                    this.shortContent(object.getJSONArray("ops"), builder, ignore -> {
+                    });
                     vo.setQuote(builder.toString());
                 } else {
                     vo.setQuote("此评论已被删除");
@@ -294,7 +377,11 @@ public class TopicServiceImpl extends ServiceImpl<TopicMapper, Topic> implements
 
     @Override
     public void deleteComment(int id, int uid) {
-        commentMapper.delete(Wrappers.<TopicComment>query().eq("id", id).eq("uid", uid));
+        TopicComment comment = commentMapper.selectOne(Wrappers.<TopicComment>query().eq("id", id).eq("uid", uid));
+        if (comment != null) {
+            commentMapper.deleteById(id);
+            cacheUtils.deleteCachePattern(Const.FORUM_TOPIC_PREVIEW_CACHE + "*");
+        }
     }
 
     @Override
@@ -308,24 +395,21 @@ public class TopicServiceImpl extends ServiceImpl<TopicMapper, Topic> implements
     public void setTopicTop(int tid, boolean top) {
         baseMapper.update(null, Wrappers.<Topic>update()
                 .eq("id", tid)
-                .set("top", top)
-        );
+                .set("top", top));
     }
 
     @Override
     public void setTopicLocked(int tid, boolean locked) {
         baseMapper.update(null, Wrappers.<Topic>update()
                 .eq("id", tid)
-                .set("locked", locked)
-        );
+                .set("locked", locked));
     }
 
     @Override
     public void setTopicInvisible(int tid, boolean invisible) {
         baseMapper.update(null, Wrappers.<Topic>update()
                 .eq("id", tid)
-                .set("invisible", invisible)
-        );
+                .set("invisible", invisible));
         cacheUtils.deleteCachePattern(Const.FORUM_TOPIC_PREVIEW_CACHE + "*");
     }
 
@@ -333,7 +417,7 @@ public class TopicServiceImpl extends ServiceImpl<TopicMapper, Topic> implements
     public Page<Topic> listTopicByUser(int uid, int page, int size) {
         return baseMapper.selectPage(Page.of(page, size, true),
                 Wrappers.<Topic>query().eq("uid", uid)
-                                      .orderByDesc("id"));
+                        .orderByDesc("id"));
     }
 
     @Override
@@ -351,9 +435,8 @@ public class TopicServiceImpl extends ServiceImpl<TopicMapper, Topic> implements
     public void deleteTopic(int tid, int uid) {
         int result = baseMapper.delete(Wrappers.<Topic>query()
                 .eq("id", tid)
-                .eq("uid", uid)
-        );
-        if(result > 0) {
+                .eq("uid", uid));
+        if (result > 0) {
             cacheUtils.deleteCachePattern(Const.FORUM_TOPIC_PREVIEW_CACHE + "*");
             baseMapper.deleteTopicCollect(tid);
         }
@@ -369,7 +452,7 @@ public class TopicServiceImpl extends ServiceImpl<TopicMapper, Topic> implements
     @Override
     public void deleteTopicType(int id) {
         TopicType type = mapper.selectById(id);
-        if(mapper.deleteById(id) > 0) {
+        if (mapper.deleteById(id) > 0) {
             List<Topic> list = baseMapper.selectList(Wrappers.<Topic>query().eq("type", type.getId()));
             list.forEach(topic -> deleteTopic(topic.getId()));
         }
@@ -384,12 +467,94 @@ public class TopicServiceImpl extends ServiceImpl<TopicMapper, Topic> implements
 
     @Override
     public void changeTopicType(int tid, int type) {
-        if(baseMapper.update(null, Wrappers.<Topic>update()
+        if (baseMapper.update(null, Wrappers.<Topic>update()
                 .eq("id", tid)
-                .set("type", type)
-        ) > 1) {
+                .set("type", type)) > 1) {
             cacheUtils.deleteCachePattern(Const.FORUM_TOPIC_PREVIEW_CACHE + "*");
         }
+    }
+
+    // 审核相关方法实现
+    @Override
+    public Page<Topic> listPendingReviewTopics(int page, int size) {
+        return baseMapper.selectPage(Page.of(page, size), Wrappers.<Topic>query()
+                .eq("status", 1)
+                .orderByDesc("time"));
+    }
+
+    @Override
+    public Page<TopicComment> listPendingReviewComments(int page, int size) {
+        return commentMapper.selectPage(Page.of(page, size), Wrappers.<TopicComment>query()
+                .eq("status", 1)
+                .orderByDesc("time"));
+    }
+
+    @Override
+    public void approveTopic(int tid) {
+        baseMapper.update(null, Wrappers.<Topic>update()
+                .eq("id", tid)
+                .set("status", 0));
+        cacheUtils.deleteCachePattern(Const.FORUM_TOPIC_PREVIEW_CACHE + "*");
+    }
+
+    @Override
+    public void rejectTopic(int tid) {
+        baseMapper.update(null, Wrappers.<Topic>update()
+                .eq("id", tid)
+                .set("invisible", 1)
+                .set("status", 0));
+        cacheUtils.deleteCachePattern(Const.FORUM_TOPIC_PREVIEW_CACHE + "*");
+    }
+
+    @Override
+    public void approveComment(int id) {
+        TopicComment comment = commentMapper.selectById(id);
+        if (comment != null) {
+            commentMapper.update(null, Wrappers.<TopicComment>update()
+                    .eq("id", id)
+                    .set("status", 0));
+            cacheUtils.deleteCachePattern(Const.FORUM_TOPIC_PREVIEW_CACHE + "*");
+        }
+    }
+
+    @Override
+    public void rejectComment(int id) {
+        TopicComment comment = commentMapper.selectById(id);
+        if (comment != null) {
+            commentMapper.deleteById(id);
+            cacheUtils.deleteCachePattern(Const.FORUM_TOPIC_PREVIEW_CACHE + "*");
+        }
+    }
+
+    @Override
+    public void batchApproveTopics(List<Integer> ids) {
+        baseMapper.update(null, Wrappers.<Topic>update()
+                .in("id", ids)
+                .set("status", 0));
+        cacheUtils.deleteCachePattern(Const.FORUM_TOPIC_PREVIEW_CACHE + "*");
+    }
+
+    @Override
+    public void batchRejectTopics(List<Integer> ids) {
+        baseMapper.update(null, Wrappers.<Topic>update()
+                .in("id", ids)
+                .set("invisible", 1)
+                .set("status", 0));
+        cacheUtils.deleteCachePattern(Const.FORUM_TOPIC_PREVIEW_CACHE + "*");
+    }
+
+    @Override
+    public void batchApproveComments(List<Integer> ids) {
+        commentMapper.update(null, Wrappers.<TopicComment>update()
+                .in("id", ids)
+                .set("status", 0));
+        cacheUtils.deleteCachePattern(Const.FORUM_TOPIC_PREVIEW_CACHE + "*");
+    }
+
+    @Override
+    public void batchRejectComments(List<Integer> ids) {
+        commentMapper.delete(Wrappers.<TopicComment>query().in("id", ids));
+        cacheUtils.deleteCachePattern(Const.FORUM_TOPIC_PREVIEW_CACHE + "*");
     }
 
     private boolean hasInteract(int tid, int uid, String type) {
@@ -401,8 +566,9 @@ public class TopicServiceImpl extends ServiceImpl<TopicMapper, Topic> implements
 
     private final Map<String, Boolean> state = new HashMap<>();
     ScheduledExecutorService service = Executors.newScheduledThreadPool(2);
+
     private void saveInteractSchedule(String type) {
-        if(!state.getOrDefault(type, false)) {
+        if (!state.getOrDefault(type, false)) {
             state.put(type, true);
             service.schedule(() -> {
                 this.saveInteract(type);
@@ -416,21 +582,20 @@ public class TopicServiceImpl extends ServiceImpl<TopicMapper, Topic> implements
             List<Interact> check = new LinkedList<>();
             List<Interact> uncheck = new LinkedList<>();
             template.opsForHash().entries(type).forEach((k, v) -> {
-                if(Boolean.parseBoolean(v.toString()))
+                if (Boolean.parseBoolean(v.toString()))
                     check.add(Interact.parseInteract(k.toString(), type));
                 else
                     uncheck.add(Interact.parseInteract(k.toString(), type));
             });
-            if(!check.isEmpty())
+            if (!check.isEmpty())
                 baseMapper.addInteract(check, type);
-            if(!uncheck.isEmpty())
+            if (!uncheck.isEmpty())
                 baseMapper.deleteInteract(uncheck, type);
             template.delete(type);
         }
     }
 
-
-    private <T> T fillUserDetailsByPrivacy(T target, int uid){
+    private <T> T fillUserDetailsByPrivacy(T target, int uid) {
         AccountDetails details = accountDetailsMapper.selectById(uid);
         Account account = accountMapper.selectById(uid);
         AccountPrivacy accountPrivacy = accountPrivacyMapper.selectById(uid);
@@ -440,42 +605,52 @@ public class TopicServiceImpl extends ServiceImpl<TopicMapper, Topic> implements
         return target;
     }
 
-
     private TopicPreviewVO resolveToPreview(Topic topic) {
         TopicPreviewVO vo = new TopicPreviewVO();
         BeanUtils.copyProperties(accountMapper.selectById(topic.getUid()), vo);
         BeanUtils.copyProperties(topic, vo);
         vo.setLike(baseMapper.interactCount(topic.getId(), "like"));
         vo.setCollect(baseMapper.interactCount(topic.getId(), "collect"));
+        vo.setComment(commentMapper.selectCount(Wrappers.<TopicComment>query().eq("tid", topic.getId()).eq("status", 0))
+                        .intValue());
         List<String> images = new ArrayList<>();
         StringBuilder previewText = new StringBuilder();
         if (topic.getContent() != null) {
-            JSONArray ops = JSONObject.parseObject(topic.getContent()).getJSONArray("ops");
-            this.shortContent(ops, previewText, obj -> images.add(obj.toString()));
+            try {
+                JSONArray ops = JSONObject.parseObject(topic.getContent()).getJSONArray("ops");
+                this.shortContent(ops, previewText, obj -> images.add(obj.toString()));
+            } catch (Exception e) {
+                // 处理JSON解析错误，使用原始内容作为预览
+                previewText.append(
+                        topic.getContent().length() > 300 ? topic.getContent().substring(0, 300) : topic.getContent());
+            }
         }
         vo.setText(previewText.length() > 300 ? previewText.substring(0, 300) : previewText.toString());
         vo.setImages(images);
         return vo;
     }
 
-    private void shortContent(JSONArray ops, StringBuilder previewText, Consumer<Object> imageHandler){
+    private void shortContent(JSONArray ops, StringBuilder previewText, Consumer<Object> imageHandler) {
         for (Object op : ops) {
             Object insert = JSONObject.from(op).get("insert");
-            if(insert instanceof String text) {
-                if(previewText.length() >= 300) continue;
+            if (insert instanceof String text) {
+                if (previewText.length() >= 300)
+                    continue;
                 previewText.append(text);
-            } else if(insert instanceof Map<?, ?> map) {
+            } else if (insert instanceof Map<?, ?> map) {
                 Optional.ofNullable(map.get("image")).ifPresent(imageHandler);
             }
         }
     }
 
     private boolean textLimitCheck(JSONObject object, int max) {
-        if(object == null) return false;
+        if (object == null)
+            return false;
         long length = 0;
         for (Object op : object.getJSONArray("ops")) {
             length += JSONObject.from(op).getString("insert").length();
-            if (length > max) return false;
+            if (length > max)
+                return false;
         }
         return true;
     }

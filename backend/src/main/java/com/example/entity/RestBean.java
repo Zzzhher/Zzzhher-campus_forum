@@ -18,9 +18,9 @@ public record RestBean<T> (long id, int code, T data, String message) {
         return new RestBean<>(requestId(), 200, data, "请求成功");
     }
 
-    public static <T> RestBean<T> success(){
-        return success(null);
-    }
+    public static <T> RestBean<T> success(){        return success(null);    }
+    
+    public static <T> RestBean<T> successWithMessage(String message){        return new RestBean<>(requestId(), 200, null, message);    }
 
     public static <T> RestBean<T> forbidden(String message){
         return failure(403, message);

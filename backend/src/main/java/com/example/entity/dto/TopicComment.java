@@ -17,4 +17,5 @@ public class TopicComment {
     String content;
     Date time;
     Integer quote;
+    Integer status; // 0: 正常, 1: 待审核
 }

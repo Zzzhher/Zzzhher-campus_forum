@@ -51,11 +51,10 @@ const router = createRouter({
                     path: 'forum-setting',
                     name: 'forum-setting',
                     component: () => import('@/views/settings/ForumSetting.vue')
-                }, {
-                    path: 'privacy-setting',
-                    name: 'privacy-setting',
-                    component: () => import('@/views/settings/PrivacySetting.vue')
-                }
+                }, {          
+                    path: 'privacy-setting',          
+                    name: 'privacy-setting',          
+                    component: () => import('@/views/settings/PrivacySetting.vue')        }, {          path: 'activity',          name: 'activity',          component: () => import('@/views/forum/ActivityView.vue')        }, {          path: 'lost-found',          name: 'lost-found',          component: () => import('@/views/forum/LostFoundView.vue')        }, {          path: 'confession',          name: 'confession',          component: () => import('@/views/forum/ConfessionView.vue')        }
             ]
         }, {
             path: '/admin',
@@ -64,8 +63,11 @@ const router = createRouter({
             children: [
                 {
                     path: '',
-                    name: 'admin-welcome',
-                    component: () => import('@/views/admin/WelcomeAdmin.vue')
+                    redirect: '/admin/moderation'
+                }, {
+                    path: 'moderation',
+                    name: 'admin-moderation',
+                    component: () => import('@/views/admin/ModerationAdmin.vue')
                 }, {
                     path: 'user',
                     name: 'admin-user',
@@ -74,11 +76,10 @@ const router = createRouter({
                     path: 'email',
                     name: 'admin-email',
                     component: () => import('@/views/admin/EmailAdmin.vue')
-                }, {
-                    path: 'forum',
+                }, {                    
+                    path: 'forum',                 
                     name: 'admin-forum',
-                    component: () => import('@/views/admin/ForumAdmin.vue')
-                }
+                    component: () => import('@/views/admin/ForumAdmin.vue')                }, {                    path: 'activity',                    name: 'admin-activity',                    component: () => import('@/views/admin/ActivityAdmin.vue')                }, {                    path: 'lost-found',                    name: 'admin-lost-found',                    component: () => import('@/views/admin/LostFoundAdmin.vue')                }, {                    path: 'confession',                    name: 'admin-confession',                    component: () => import('@/views/admin/ConfessionAdmin.vue')                }
             ]
         }
     ]

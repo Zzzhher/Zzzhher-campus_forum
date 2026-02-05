@@ -26,9 +26,18 @@ function submitComment() {
     tid: props.tid,
     quote: props.quote ? props.quote.id : -1,
     content: JSON.stringify(content.value)
-  }, () => {
-    ElMessage.success('发表评论成功')
-    emit('comment')
+  }, (response) => {
+    // 后端返回null表示成功，返回字符串表示有提示信息
+    if (response === null) {
+      ElMessage.success('发表评论成功')
+    } else if (response.includes('等待审核')) {
+      ElMessage.warning(response)
+    } else {
+      ElMessage.error(response)
+      return // 失败时不关闭编辑框
+    }
+    emit('comment') // 通知父组件有新评论
+    emit('close') // 关闭编辑框
   })
 }
 

@@ -13,6 +13,7 @@ import {
   FolderOpened,
   Link,
   Lock,
+  ChatDotRound,
   Microphone,
   Picture,
   Star,
@@ -274,6 +275,10 @@ onMounted(() => {
                 <div>
                   <el-icon style="vertical-align: middle"><Star /></el-icon>
                   {{ item.collect }}收藏
+                </div>
+                <div>
+                  <el-icon style="vertical-align: middle"><ChatDotRound /></el-icon>
+                  {{ item.comment }}评论
                 </div>
               </div>
             </light-card>

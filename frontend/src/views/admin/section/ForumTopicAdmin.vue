@@ -181,7 +181,7 @@ watchEffect(() => refreshList())
 .pagination {
     margin-top: 20px;
     display: flex;
-    justify-content: right;
+    justify-content: center;
 }
 
 .topic-username {

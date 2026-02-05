@@ -23,13 +23,14 @@ public class Topic {
     Integer top;
     Integer locked;
     Integer invisible;
+    Integer status; // 0: 正常, 1: 待审核
 
     public static String recreateIntro(JSONObject content) {
         StringBuilder builder = new StringBuilder();
         JSONArray ops = content.getJSONArray("ops");
         for (Object op : ops) {
             Object insert = JSONObject.from(op).get("insert");
-            if(insert instanceof String text) {
+            if (insert instanceof String text) {
                 builder.append(text);
             }
         }

@@ -1,6 +1,7 @@
 <script setup>
 import {
   Bell,
+  CircleCheck,
   ChatDotSquare,
   Collection,
   Document,
@@ -18,17 +19,16 @@ import { inject, onMounted, ref } from "vue";
 import router from "@/router";
 import { useRoute } from "vue-router";
 const adminMenu = [
-  {
-    title: "校园论坛管理",
+  { title: "校园论坛管理",
     icon: Location,
     sub: [
       { title: "用户管理", icon: User, index: "/admin/user" },
       { title: "邮件管理", icon: Message, index: "/admin/email" },
       { title: "帖子广场管理", icon: ChatDotSquare, index: "/admin/forum" },
-      { title: "校园活动管理", icon: Notification },
-      { title: "失物招领管理", icon: Bell },
-      { title: "表白墙管理", icon: Umbrella },
-      { title: "合作机构管理", icon: School },
+      { title: "内容审核管理", icon: CircleCheck, index: "/admin/moderation" },
+      { title: "校园活动管理", icon: Notification, index: "/admin/activity" },      
+      { title: "失物招领管理", icon: Bell, index: "/admin/lost-found" },
+      { title: "表白墙管理", icon: Umbrella, index: "/admin/confession" },
     ],
   },
   {
@@ -38,7 +38,6 @@ const adminMenu = [
       { title: "成绩管理", icon: Document },
       { title: "课程表管理", icon: Files },
       { title: "在线图书馆管理", icon: Collection },
-      { title: "合作机构管理", icon: School },
     ],
   },
 ];
@@ -100,7 +99,7 @@ onMounted(() => {
           <el-menu
             router
             :default-active="$route.path"
-            :default-openeds="['1', '2']"
+            :default-openeds="['1']"
             style="min-height: calc(100vh - 57px); border: none"
           >
             <el-sub-menu

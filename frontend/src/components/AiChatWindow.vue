@@ -82,8 +82,9 @@ const sendMessage = () => {
 <style lang="less" scoped>
 .ai-chat-window {
   position: fixed;
-  bottom: 20px;
+  top: 50%;
   right: 20px;
+  transform: translateY(-50%);
   z-index: 999;
 
   .chat-button {

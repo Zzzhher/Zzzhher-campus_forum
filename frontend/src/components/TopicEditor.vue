@@ -38,9 +38,17 @@ const props = defineProps({
           title: editor.title,
           content: editor.text,
         },
-        () => {
-          ElMessage.success("帖子发表成功！");
-          success();
+        (response) => {
+          // 后端返回null表示成功，返回字符串表示有提示信息
+          if (response === null) {
+            ElMessage.success("帖子发表成功！");
+          } else if (response.includes("等待审核")) {
+            ElMessage.warning(response);
+          } else {
+            ElMessage.error(response);
+            return; // 失败时不关闭编辑框
+          }
+          success(); // 无论是否需要审核，都关闭编辑框
         }
       );
     },

@@ -22,18 +22,13 @@ const store = userStore()
 const userMenu = [
   {
     title: '校园论坛', icon: Location, sub: [
-      { title: '帖子广场', icon: ChatDotSquare, index: '/index' },
-      { title: '校园活动', icon: Notification },
-      { title: '失物招领', icon: Bell },
-      { title: '表白墙', icon: Umbrella },
-      { title: '海文考研', icon: School }
+      { title: '帖子广场', icon: ChatDotSquare, index: '/index' },      { title: '校园活动', icon: Notification, index: '/index/activity' },      { title: '失物招领', icon: Bell, index: '/index/lost-found' },      { title: '表白墙', icon: Umbrella, index: '/index/confession' }
     ]
   }, {
     title: '探索与发现', icon: Position, sub: [
       { title: '成绩查询', icon: Document },
       { title: '班级课程表', icon: Files },
-      { title: '在线图书馆', icon: Collection },
-      { title: '学子驾校', icon: School }
+      { title: '在线图书馆', icon: Collection }
     ]
   }, {
     title: '个人设置', icon: Operation, sub: [
