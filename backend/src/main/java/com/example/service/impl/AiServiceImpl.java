@@ -4,8 +4,6 @@ import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.example.service.AiService;
 import jakarta.annotation.Resource;
-import org.springframework.ai.chat.messages.AbstractMessage;
-import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatModel;
@@ -27,13 +25,13 @@ public class AiServiceImpl implements AiService {
     public SseEmitter chatWithAi(JSONArray context) {
         SseEmitter emitter = new SseEmitter(30000L);
 
-        List<? extends AbstractMessage> list = context.stream().map(item -> {
+        List<Message> list = context.stream().map(item -> {
             JSONObject obj = JSONObject.from(item);
-            return switch (obj.getString("type")) {
-                case "user" -> new UserMessage(obj.getString("text"));
-                case "assistant" -> new AssistantMessage(obj.getString("text"));
-                default -> throw new RuntimeException();
-            };
+            if ("user".equals(obj.getString("type"))) {
+                return (Message) new UserMessage(obj.getString("text"));
+            } else {
+                return (Message) new UserMessage(obj.getString("text"));
+            }
         }).toList();
         Prompt prompt = new Prompt(list.toArray(new Message[0]));
         Flux<ChatResponse> flux = chatModel.stream(prompt);
@@ -48,5 +46,33 @@ public class AiServiceImpl implements AiService {
         }, emitter::completeWithError, emitter::complete);
 
         return emitter;
+    }
+
+    @Override
+    public boolean checkFalseAdvertising(String text) {
+        String prompt = "请判断以下文本是否包含虚假宣传内容，如'包过'、'高薪'等误导性词汇。如果包含，请返回'是'，否则返回'否'。\n\n" + text;
+        Prompt chatPrompt = new Prompt(new UserMessage(prompt));
+        ChatResponse response = chatModel.call(chatPrompt);
+        if (response.getResult() == null || response.getResult().getOutput() == null) {
+            return false; // 默认不认为包含虚假宣传，避免空指针异常
+        }
+        String result = response.getResult().getOutput().getText();
+        return result.contains("是");
+    }
+
+    @Override
+    public Integer analyzeSentiment(String text) {
+        String prompt = "请分析以下文本的情感倾向，正面情感返回1，负面情感返回-1，中性返回0。\n\n" + text;
+        Prompt chatPrompt = new Prompt(new UserMessage(prompt));
+        ChatResponse response = chatModel.call(chatPrompt);
+        if (response.getResult() == null || response.getResult().getOutput() == null) {
+            return 0; // 默认返回中性情感，避免空指针异常
+        }
+        String result = response.getResult().getOutput().getText();
+        try {
+            return Integer.parseInt(result.trim());
+        } catch (NumberFormatException e) {
+            return 0;
+        }
     }
 }

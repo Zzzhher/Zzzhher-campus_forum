@@ -51,10 +51,7 @@ const router = createRouter({
                     path: 'forum-setting',
                     name: 'forum-setting',
                     component: () => import('@/views/settings/ForumSetting.vue')
-                }, {          
-                    path: 'privacy-setting',          
-                    name: 'privacy-setting',          
-                    component: () => import('@/views/settings/PrivacySetting.vue')        }, {          path: 'activity',          name: 'activity',          component: () => import('@/views/forum/ActivityView.vue')        }, {          path: 'lost-found',          name: 'lost-found',          component: () => import('@/views/forum/LostFoundView.vue')        }, {          path: 'confession',          name: 'confession',          component: () => import('@/views/forum/ConfessionView.vue')        }
+                }, {          path: 'privacy-setting',          name: 'privacy-setting',          component: () => import('@/views/settings/PrivacySetting.vue')        }, {          path: 'activity',          name: 'activity',          component: () => import('@/views/forum/ActivityView.vue')        }, {          path: 'activity-create',          name: 'activity-create',          component: () => import('@/views/forum/ActivityCreate.vue')        }, {          path: 'activity-detail/:id',          name: 'activity-detail',          component: () => import('@/views/forum/ActivityDetail.vue')        }, {          path: 'lost-found',          name: 'lost-found',          component: () => import('@/views/forum/LostFoundView.vue')        }, {          path: 'confession',          name: 'confession',          component: () => import('@/views/forum/ConfessionView.vue')        }
             ]
         }, {
             path: '/admin',

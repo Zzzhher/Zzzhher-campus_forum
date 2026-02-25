@@ -118,21 +118,25 @@ public class TopicServiceImpl extends ServiceImpl<TopicMapper, Topic> implements
         topic.createIntro();
 
         boolean needReview = false;
-        if (!plainText.isEmpty()) {
-            // 调用AI服务进行内容审核
-            JSONObject moderationResult = aiServiceUtils.moderateContent(plainText);
-            // 获取审核决策
-            AiServiceUtils.ModerationDecision decision = aiServiceUtils.getModerationDecision(moderationResult);
-
-            // 根据审核决策处理
-            if (decision == AiServiceUtils.ModerationDecision.BLOCK) {
-                return "帖子内容不符合规范，发表失败！";
-            } else if (decision == AiServiceUtils.ModerationDecision.MANUAL_REVIEW) {
-                // 对于需要人工审核的内容，标记为待审核状态
-                topic.setStatus(1);
-                needReview = true;
-            }
-        }
+        // 暂时注释掉AI审核功能
+        /*
+         * if (!plainText.isEmpty()) {
+         * // 调用AI服务进行内容审核
+         * JSONObject moderationResult = aiServiceUtils.moderateContent(plainText);
+         * // 获取审核决策
+         * AiServiceUtils.ModerationDecision decision =
+         * aiServiceUtils.getModerationDecision(moderationResult);
+         * 
+         * // 根据审核决策处理
+         * if (decision == AiServiceUtils.ModerationDecision.BLOCK) {
+         * return "帖子内容不符合规范，发表失败！";
+         * } else if (decision == AiServiceUtils.ModerationDecision.MANUAL_REVIEW) {
+         * // 对于需要人工审核的内容，标记为待审核状态
+         * topic.setStatus(1);
+         * needReview = true;
+         * }
+         * }
+         */
 
         if (this.save(topic)) {
             cacheUtils.deleteCachePattern(Const.FORUM_TOPIC_PREVIEW_CACHE + "*");
@@ -279,21 +283,25 @@ public class TopicServiceImpl extends ServiceImpl<TopicMapper, Topic> implements
         comment.setStatus(0); // 默认设置为正常状态
 
         boolean needReview = false;
-        if (!plainText.isEmpty()) {
-            // 调用AI服务进行内容审核
-            JSONObject moderationResult = aiServiceUtils.moderateContent(plainText);
-            // 获取审核决策
-            AiServiceUtils.ModerationDecision decision = aiServiceUtils.getModerationDecision(moderationResult);
-
-            // 根据审核决策处理
-            if (decision == AiServiceUtils.ModerationDecision.BLOCK) {
-                return "评论内容不符合规范，发表失败！";
-            } else if (decision == AiServiceUtils.ModerationDecision.MANUAL_REVIEW) {
-                // 对于需要人工审核的内容，标记为待审核状态
-                comment.setStatus(1);
-                needReview = true;
-            }
-        }
+        // 暂时注释掉AI审核功能
+        /*
+         * if (!plainText.isEmpty()) {
+         * // 调用AI服务进行内容审核
+         * JSONObject moderationResult = aiServiceUtils.moderateContent(plainText);
+         * // 获取审核决策
+         * AiServiceUtils.ModerationDecision decision =
+         * aiServiceUtils.getModerationDecision(moderationResult);
+         * 
+         * // 根据审核决策处理
+         * if (decision == AiServiceUtils.ModerationDecision.BLOCK) {
+         * return "评论内容不符合规范，发表失败！";
+         * } else if (decision == AiServiceUtils.ModerationDecision.MANUAL_REVIEW) {
+         * // 对于需要人工审核的内容，标记为待审核状态
+         * comment.setStatus(1);
+         * needReview = true;
+         * }
+         * }
+         */
 
         commentMapper.insert(comment);
         cacheUtils.deleteCachePattern(Const.FORUM_TOPIC_PREVIEW_CACHE + "*");
@@ -612,7 +620,7 @@ public class TopicServiceImpl extends ServiceImpl<TopicMapper, Topic> implements
         vo.setLike(baseMapper.interactCount(topic.getId(), "like"));
         vo.setCollect(baseMapper.interactCount(topic.getId(), "collect"));
         vo.setComment(commentMapper.selectCount(Wrappers.<TopicComment>query().eq("tid", topic.getId()).eq("status", 0))
-                        .intValue());
+                .intValue());
         List<String> images = new ArrayList<>();
         StringBuilder previewText = new StringBuilder();
         if (topic.getContent() != null) {

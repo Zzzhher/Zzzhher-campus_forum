@@ -11,7 +11,6 @@ public class TopicUpdateVO {
     @Min(0)
     int id;
     @Min(1)
-    @Max(5)
     int type;
     @Length(min = 1, max = 30)
     String title;

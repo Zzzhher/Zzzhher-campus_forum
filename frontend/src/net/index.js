@@ -1,6 +1,7 @@
 import axios from "axios";
 import {ElMessage} from "element-plus";
 import router from "@/router";
+import {userStore} from "@/store";
 
 const authItemName = "authorize"
 
@@ -124,7 +125,10 @@ function isUnauthorized() {
     return !takeAccessToken()
 }
 function isRoleAdmin() {
-    return takeAccessToken()?.role === 'admin'
+    const tokenRole = takeAccessToken()?.role === 'admin';
+    const store = userStore();
+    const storeRole = store.user?.role === 'admin';
+    return tokenRole || storeRole;
 }
 
 export { post, get, login, logout, isUnauthorized, isRoleAdmin, accessHeader, fetchPost }

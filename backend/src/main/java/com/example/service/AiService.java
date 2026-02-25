@@ -5,4 +5,6 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 public interface AiService {
     SseEmitter chatWithAi(JSONArray content);
+    boolean checkFalseAdvertising(String text);
+    Integer analyzeSentiment(String text);
 }

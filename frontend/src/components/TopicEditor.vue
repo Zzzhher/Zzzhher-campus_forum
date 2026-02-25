@@ -1,16 +1,19 @@
 <script setup>
-import { computed, reactive, ref } from "vue";
+
 import "@vueup/vue-quill/dist/vue-quill.snow.css";
 import { Delta, Quill, QuillEditor } from "@vueup/vue-quill";
-import { Check, Document } from "@element-plus/icons-vue";
+
 import ImageResize from "quill-image-resize-vue";
 import { ImageExtend, QuillWatch } from "quill-image-super-solution-module";
-import { ElMessage } from "element-plus";
+
 import { accessHeader } from "@/net";
 import axios from "axios";
 import ColorDot from "@/components/ColorDot.vue";
 import { userStore } from "@/store";
 import { apiForumTopicCreate } from "@/net/api/forum";
+import { ElMessage } from "element-plus";
+import { Check, Document } from "@element-plus/icons-vue";
+import {computed, reactive, ref} from "vue";
 
 const props = defineProps({
   show: Boolean,
@@ -67,10 +70,10 @@ const editor = reactive({
 });
 
 function initEditor() {
-  if (props.defaultText) editor.text = new Delta(JSON.parse(props.defaultText));
-  else refEditor.value.setContents(new Delta(), "user");
-  editor.title = props.defaultTitle;
-  editor.type = findTypeById(props.defaultType);
+    if (props.defaultText) editor.text = new Delta(JSON.parse(props.defaultText));
+    else refEditor.value.setContents(new Delta(), "user");
+    editor.title = props.defaultTitle;
+    editor.type = findTypeById(props.defaultType);
 }
 
 function findTypeById(id) {
@@ -185,7 +188,7 @@ const editorOption = {
       @open="initEditor"
       :close-on-click-modal="false"
       :size="650"
-      @close="emit('close')"
+      @close="handleClose"
     >
       <template #header>
         <div>
@@ -256,11 +259,9 @@ const editorOption = {
         <div style="color: grey; font-size: 13px">
           当前字数 {{ contentLength }}（最大支持20000字）
         </div>
-        <div>
           <el-button type="success" :icon="Check" @click="submitTopic" plain>{{
             submitButton
           }}</el-button>
-        </div>
       </div>
     </el-drawer>
   </div>

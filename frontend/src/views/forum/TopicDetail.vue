@@ -86,15 +86,25 @@ const init = () =>
 init();
 
 function convertToHtml(content) {
-  const ops = JSON.parse(content).ops;
-  const converter = new QuillDeltaToHtmlConverter(ops, { inlineStyles: true });
-  let html = converter.convert();
-  // 为所有img标签添加统一class，保留其他属性
-  html = html.replace(
-    /(<img\s+)([^>]*?)(src="[^"]+")([^>]*?)(>)/g,
-    '$1$2$3 class="topic-image"$4$5'
-  );
-  return html;
+  try {
+    const ops = JSON.parse(content).ops;
+    const converter = new QuillDeltaToHtmlConverter(ops, { inlineStyles: true });
+    let html = converter.convert();
+    // 为所有img标签添加统一class，保留其他属性
+    html = html.replace(
+      /(<img\s+)([^>]*?)(src="[^"]+")([^>]*?)(>)/g,
+      '$1$2$3 class="topic-image"$4$5'
+    );
+    return html;
+  } catch (error) {
+    console.error('Error parsing content:', error);
+    // 当JSON解析失败时，返回原始内容或错误消息
+    return `<div style="color: red; padding: 10px; background-color: #ffe6e6; border-radius: 4px;">
+      <strong>内容解析错误：</strong>
+      <p>${error.message}</p>
+      <p>原始内容：${content}</p>
+    </div>`;
+  }
 }
 
 // 监听topic.data变化，为图片绑定点击事件
