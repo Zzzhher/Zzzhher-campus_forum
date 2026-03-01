@@ -81,3 +81,31 @@ export const apiModerationBatchApproveComments = (ids, success) =>
  */
 export const apiModerationBatchRejectComments = (ids, success) =>
     post(`/api/admin/moderation/batch-reject-comments`, { ids }, success);
+
+/**
+ * 获取审核统计信息
+ * @param success 成功回调
+ */
+export const apiModerationStats = (success) =>
+    get(`/api/admin/moderation/stats`, success);
+
+/**
+ * 重置审核统计
+ * @param success 成功回调
+ */
+export const apiModerationResetStats = (success) =>
+    get(`/api/admin/moderation/stats/reset`, success);
+
+/**
+ * 重置熔断器
+ * @param success 成功回调
+ */
+export const apiModerationResetCircuitBreaker = (success) =>
+    get(`/api/admin/moderation/circuit-breaker/reset`, success);
+
+/**
+ * 检查AI服务健康状态
+ * @param success 成功回调
+ */
+export const apiModerationHealth = (success) =>
+    get(`/api/admin/moderation/health`, success);

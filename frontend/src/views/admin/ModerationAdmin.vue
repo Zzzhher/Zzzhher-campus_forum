@@ -13,7 +13,11 @@ import {
   apiModerationBatchApproveTopics,
   apiModerationBatchRejectTopics,
   apiModerationBatchApproveComments,
-  apiModerationBatchRejectComments
+  apiModerationBatchRejectComments,
+  apiModerationStats,
+  apiModerationResetStats,
+  apiModerationResetCircuitBreaker,
+  apiModerationHealth
 } from '@/net/api/moderation';
 
 const activeTab = ref('topics');
@@ -29,6 +33,23 @@ const selectedTopics = ref([]);
 const selectedComments = ref([]);
 const selectAllTopics = ref(false);
 const selectAllComments = ref(false);
+
+// 统计信息
+const stats = ref({
+  total: 0,
+  allow: 0,
+  block: 0,
+  manual: 0,
+  fallback: 0,
+  allowRate: '0.00%',
+  blockRate: '0.00%',
+  manualRate: '0.00%',
+  circuitBreakerOpen: false,
+  consecutiveFailures: 0,
+  aiServiceAvailable: false,
+  timestamp: ''
+});
+const statsLoading = ref(false);
 
 // 获取待审核的帖子
 const fetchPendingTopics = () => {
@@ -233,9 +254,41 @@ const batchRejectComments = () => {
   });
 };
 
+// 获取统计信息
+const fetchStats = () => {
+  statsLoading.value = true;
+  apiModerationStats((data) => {
+    stats.value = data;
+    statsLoading.value = false;
+  });
+};
+
+// 重置统计
+const resetStats = () => {
+  ElMessageBox.confirm('确定要重置审核统计吗？', '提示', {
+    confirmButtonText: '确定',
+    cancelButtonText: '取消',
+    type: 'warning'
+  }).then(() => {
+    apiModerationResetStats(() => {
+      ElMessage.success('统计已重置！');
+      fetchStats();
+    });
+  }).catch(() => {});
+};
+
+// 重置熔断器
+const resetCircuitBreaker = () => {
+  apiModerationResetCircuitBreaker(() => {
+    ElMessage.success('熔断器已重置！');
+    fetchStats();
+  });
+};
+
 // 初始化
 onMounted(() => {
   fetchPendingTopics();
+  fetchStats();
 });
 
 // 提取纯文本内容
@@ -272,6 +325,72 @@ const extractPlainText = (content) => {
       </div>
     </div>
     
+    <!-- 统计面板 -->
+    <el-card class="stats-card" v-loading="statsLoading">
+      <template #header>
+        <div class="stats-header">
+          <span>审核统计</span>
+          <div class="stats-actions">
+            <el-button type="primary" size="small" @click="fetchStats">刷新</el-button>
+            <el-button size="small" @click="resetStats">重置统计</el-button>
+            <el-button 
+              v-if="stats.circuitBreakerOpen" 
+              type="warning" 
+              size="small" 
+              @click="resetCircuitBreaker"
+            >
+              重置熔断器
+            </el-button>
+          </div>
+        </div>
+      </template>
+      <div class="stats-content">
+        <div class="stats-item">
+          <div class="stats-value">{{ stats.total }}</div>
+          <div class="stats-label">总审核数</div>
+        </div>
+        <div class="stats-item success">
+          <div class="stats-value">{{ stats.allow }}</div>
+          <div class="stats-label">通过 ({{ stats.allowRate }})</div>
+        </div>
+        <div class="stats-item danger">
+          <div class="stats-value">{{ stats.block }}</div>
+          <div class="stats-label">拦截 ({{ stats.blockRate }})</div>
+        </div>
+        <div class="stats-item warning">
+          <div class="stats-value">{{ stats.manual }}</div>
+          <div class="stats-label">人工审核 ({{ stats.manualRate }})</div>
+        </div>
+        <div class="stats-item info">
+          <div class="stats-value">{{ stats.fallback }}</div>
+          <div class="stats-label">降级处理</div>
+        </div>
+        <div class="stats-item" :class="stats.aiServiceAvailable ? 'success' : 'danger'">
+          <div class="stats-value">
+            <el-tag :type="stats.aiServiceAvailable ? 'success' : 'danger'" size="small">
+              {{ stats.aiServiceAvailable ? '正常' : '异常' }}
+            </el-tag>
+          </div>
+          <div class="stats-label">AI服务状态</div>
+        </div>
+        <div class="stats-item" :class="stats.circuitBreakerOpen ? 'danger' : 'success'">
+          <div class="stats-value">
+            <el-tag :type="stats.circuitBreakerOpen ? 'danger' : 'success'" size="small">
+              {{ stats.circuitBreakerOpen ? '开启' : '关闭' }}
+            </el-tag>
+          </div>
+          <div class="stats-label">熔断器状态</div>
+        </div>
+        <div class="stats-item" v-if="stats.consecutiveFailures > 0">
+          <div class="stats-value">{{ stats.consecutiveFailures }}</div>
+          <div class="stats-label">连续失败次数</div>
+        </div>
+      </div>
+      <div class="stats-time" v-if="stats.timestamp">
+        更新时间: {{ stats.timestamp }}
+      </div>
+    </el-card>
+
     <el-tabs v-model="activeTab" @tab-click="handleTabChange">
       <el-tab-pane label="待审核帖子" name="topics">
         <div class="batch-actions">
@@ -406,6 +525,75 @@ const extractPlainText = (content) => {
     margin-top: 20px;
     display: flex;
     justify-content: center;
+  }
+
+  .stats-card {
+    margin-bottom: 20px;
+
+    .stats-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+
+      .stats-actions {
+        display: flex;
+        gap: 10px;
+      }
+    }
+
+    .stats-content {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+
+      .stats-item {
+        flex: 1;
+        min-width: 120px;
+        text-align: center;
+        padding: 15px;
+        background: #f5f7fa;
+        border-radius: 8px;
+
+        .stats-value {
+          font-size: 24px;
+          font-weight: bold;
+          color: #303133;
+          margin-bottom: 5px;
+        }
+
+        .stats-label {
+          font-size: 12px;
+          color: #909399;
+        }
+
+        &.success {
+          background: #f0f9eb;
+          .stats-value { color: #67c23a; }
+        }
+
+        &.danger {
+          background: #fef0f0;
+          .stats-value { color: #f56c6c; }
+        }
+
+        &.warning {
+          background: #fdf6ec;
+          .stats-value { color: #e6a23c; }
+        }
+
+        &.info {
+          background: #f4f4f5;
+          .stats-value { color: #909399; }
+        }
+      }
+    }
+
+    .stats-time {
+      margin-top: 10px;
+      text-align: right;
+      font-size: 12px;
+      color: #909399;
+    }
   }
 }
 </style>

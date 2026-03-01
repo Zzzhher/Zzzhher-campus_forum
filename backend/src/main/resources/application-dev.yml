@@ -22,7 +22,7 @@ spring:
   elasticsearch:
     uris: localhost:9200
     username: elastic
-    password: Es@123456
+    password: 123456
   datasource:
     url: jdbc:mysql://localhost:3306/campus_forum
     username: root

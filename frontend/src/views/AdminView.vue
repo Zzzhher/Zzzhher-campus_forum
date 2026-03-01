@@ -39,8 +39,8 @@ const adminMenu = [
 const route = useRoute();
 const loading = inject("userLoading");
 const pageTabs = ref([]);
-function handleTabClick({ props }) {
-  router.push(props.name);
+function handleTabClick(tab) {
+  router.push(tab.props.name);
 }
 
 function handleTabClose(name) {

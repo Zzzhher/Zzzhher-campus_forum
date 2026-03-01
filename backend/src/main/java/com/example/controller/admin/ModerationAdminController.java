@@ -1,10 +1,12 @@
 package com.example.controller.admin;
 
+import com.alibaba.fastjson2.JSONObject;
 import com.example.entity.PageRestBean;
 import com.example.entity.RestBean;
 import com.example.entity.dto.Topic;
 import com.example.entity.dto.TopicComment;
 import com.example.service.TopicService;
+import com.example.utils.AiServiceUtils;
 import jakarta.annotation.Resource;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -130,7 +132,7 @@ public class ModerationAdminController {
 
     /**
      * 批量拒绝评论
-     * 
+     *
      * @param ids 评论ID列表
      * @return 操作结果
      */
@@ -138,5 +140,50 @@ public class ModerationAdminController {
     public RestBean<Void> batchRejectComments(@RequestParam List<Integer> ids) {
         topicService.batchRejectComments(ids);
         return RestBean.success();
+    }
+
+    /**
+     * 获取审核统计信息
+     *
+     * @return 审核统计数据
+     */
+    @GetMapping("/stats")
+    public RestBean<JSONObject> getModerationStats() {
+        return RestBean.success(AiServiceUtils.getModerationStats());
+    }
+
+    /**
+     * 重置审核统计
+     *
+     * @return 操作结果
+     */
+    @GetMapping("/stats/reset")
+    public RestBean<Void> resetModerationStats() {
+        AiServiceUtils.resetStats();
+        return RestBean.success();
+    }
+
+    /**
+     * 重置熔断器
+     *
+     * @return 操作结果
+     */
+    @GetMapping("/circuit-breaker/reset")
+    public RestBean<Void> resetCircuitBreaker() {
+        AiServiceUtils.resetCircuitBreaker();
+        return RestBean.success();
+    }
+
+    /**
+     * 检查AI服务健康状态
+     *
+     * @return 健康状态
+     */
+    @GetMapping("/health")
+    public RestBean<JSONObject> checkAiServiceHealth() {
+        JSONObject health = new JSONObject();
+        health.put("available", AiServiceUtils.checkHealth());
+        health.put("stats", AiServiceUtils.getModerationStats());
+        return RestBean.success(health);
     }
 }

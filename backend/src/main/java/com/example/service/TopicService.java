@@ -50,6 +50,8 @@ public interface TopicService extends IService<Topic> {
 
     Page<Topic> listTopicByUser(int uid, int page, int size);
 
+    Page<TopicComment> listCommentByUser(int uid, int page, int size);
+
     List<TopicSearchVO> searchTopic(String keyword);
 
     void deleteTopic(int tid, int uid);

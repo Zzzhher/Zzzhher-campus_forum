@@ -12,8 +12,9 @@ import ColorDot from "@/components/ColorDot.vue";
 import { userStore } from "@/store";
 import { apiForumTopicCreate } from "@/net/api/forum";
 import { ElMessage } from "element-plus";
-import { Check, Document } from "@element-plus/icons-vue";
+import { Check, Document, Edit } from "@element-plus/icons-vue";
 import {computed, reactive, ref} from "vue";
+import { ElMessageBox } from "element-plus";
 
 const props = defineProps({
   show: Boolean,
@@ -74,6 +75,10 @@ function initEditor() {
     else refEditor.value.setContents(new Delta(), "user");
     editor.title = props.defaultTitle;
     editor.type = findTypeById(props.defaultType);
+    // 检查是否有草稿
+    if (!props.defaultText && !props.defaultTitle && !props.defaultType) {
+      loadDraft();
+    }
 }
 
 function findTypeById(id) {
@@ -99,6 +104,77 @@ function deltaToText(delta) {
 
 const contentLength = computed(() => deltaToText(editor.text).length);
 
+function hasContent() {
+  return editor.title.trim() || deltaToText(editor.text).length > 0 || editor.type;
+}
+
+function saveDraft() {
+  const draft = {
+    title: editor.title,
+    text: JSON.stringify(editor.text),
+    typeId: editor.type?.id || null,
+    savedAt: new Date().toISOString()
+  };
+  localStorage.setItem("topicDraft", JSON.stringify(draft));
+  ElMessage.success("草稿已保存");
+}
+
+function loadDraft() {
+  const draftStr = localStorage.getItem("topicDraft");
+  if (draftStr) {
+    try {
+      const draft = JSON.parse(draftStr);
+      if (draft.title || draft.text || draft.typeId) {
+        ElMessageBox.confirm(
+          "检测到未完成的草稿，是否恢复？",
+          "恢复草稿",
+          {
+            confirmButtonText: "恢复",
+            cancelButtonText: "放弃",
+            type: "info",
+          }
+        )
+          .then(() => {
+            if (draft.text) editor.text = new Delta(JSON.parse(draft.text));
+            editor.title = draft.title || "";
+            if (draft.typeId) editor.type = findTypeById(draft.typeId);
+            ElMessage.success("草稿已恢复");
+          })
+          .catch(() => {
+            // 放弃草稿
+            localStorage.removeItem("topicDraft");
+          });
+      }
+    } catch (e) {
+      console.error("解析草稿失败:", e);
+      localStorage.removeItem("topicDraft");
+    }
+  }
+}
+
+function handleClose() {
+  if (hasContent()) {
+    ElMessageBox.confirm(
+      "是否保存草稿？",
+      "确认操作",
+      {
+        confirmButtonText: "保存草稿",
+        cancelButtonText: "直接关闭",
+        type: "warning",
+      }
+    )
+      .then(() => {
+        saveDraft();
+        emit("close");
+      })
+      .catch(() => {
+        emit("close");
+      });
+  } else {
+    emit("close");
+  }
+}
+
 function submitTopic() {
   const text = deltaToText(editor.text);
   if (text.length > 20000) {
@@ -113,7 +189,11 @@ function submitTopic() {
     ElMessage.warning("请选择一个合适的帖子类型！");
     return;
   }
-  props.submit(editor, () => emit("success"));
+  props.submit(editor, () => {
+    // 发布成功后清除草稿
+    localStorage.removeItem("topicDraft");
+    emit("success");
+  });
 }
 Quill.register("modules/imageResize", ImageResize);
 Quill.register("modules/ImageExtend", ImageExtend);

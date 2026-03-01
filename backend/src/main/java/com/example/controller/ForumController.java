@@ -6,6 +6,7 @@ import com.example.entity.RestBean;
 import com.example.entity.dto.Account;
 import com.example.entity.dto.Interact;
 import com.example.entity.dto.Topic;
+import com.example.entity.dto.TopicComment;
 import com.example.entity.vo.request.AddCommentVO;
 import com.example.entity.vo.request.TopicCreateVO;
 import com.example.entity.vo.request.TopicUpdateVO;
@@ -135,6 +136,13 @@ public class ForumController {
                                          @RequestParam int page,
                                          @RequestParam int size) {
         return PageRestBean.success(topicService.listTopicByUser(uid, page, size));
+    }
+
+    @GetMapping("/user-comment")
+    public PageRestBean<TopicComment> userComment(@RequestAttribute(Const.ATTR_USER_ID) int uid,
+                                                  @RequestParam int page,
+                                                  @RequestParam int size) {
+        return PageRestBean.success(topicService.listCommentByUser(uid, page, size));
     }
 
     @GetMapping("/delete-topic")

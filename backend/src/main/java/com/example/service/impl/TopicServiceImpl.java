@@ -18,6 +18,9 @@ import com.example.service.NotificationService;
 import com.example.service.TopicService;
 import com.example.utils.CacheUtils;
 import com.example.utils.Const;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Consumer;
 import com.example.utils.FlowUtils;
 import com.example.utils.ProhibitedUtils;
 import com.example.utils.AiServiceUtils;
@@ -26,7 +29,6 @@ import jakarta.annotation.Resource;
 import org.springframework.beans.BeanUtils;
 import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.security.core.parameters.P;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -71,9 +73,6 @@ public class TopicServiceImpl extends ServiceImpl<TopicMapper, Topic> implements
     @Resource
     TopicRepository topicRepository;
 
-    @Resource
-    AiServiceUtils aiServiceUtils;
-
     private Set<Integer> types = null;
 
     @PostConstruct
@@ -83,6 +82,12 @@ public class TopicServiceImpl extends ServiceImpl<TopicMapper, Topic> implements
                 .map(TopicType::getId)
                 .collect(Collectors.toSet());
     }
+
+    /**
+     * 内容类型常量
+     */
+    private static final int TYPE_CONFESSION = 3; // 表白墙类型
+    private static final int TYPE_LOST_FOUND = 2; // 失物招领类型
 
     @Override
     public List<TopicType> listTypes() {
@@ -99,14 +104,14 @@ public class TopicServiceImpl extends ServiceImpl<TopicMapper, Topic> implements
         if (!flowUtils.limitPeriodCounterCheck(key, 3, 3600))
             return "发文频繁，请稍后再试！";
 
-        // 提取纯文本内容进行AI审核（优先），包括标题
+        // 提取纯文本内容进行AI审核，包括标题
         String titleText = vo.getTitle();
         String contentText = extractPlainText(vo.getContent().toJSONString());
         String plainText = titleText + " " + contentText;
 
-        // 违禁词检查作为兜底措施，包括标题
+        // 违禁词检查作为兜底措施
         if (prohibitedUtils.containsProhibitedWord(vo.getTitle())
-                || prohibitedUtils.containsProhibitedWord(vo.getContent()))
+                || prohibitedUtils.containsProhibitedWord(vo.getContent().toString()))
             return "包含违禁词，发文失败！";
 
         Topic topic = new Topic();
@@ -118,28 +123,33 @@ public class TopicServiceImpl extends ServiceImpl<TopicMapper, Topic> implements
         topic.createIntro();
 
         boolean needReview = false;
-        // 暂时注释掉AI审核功能
-        /*
-         * if (!plainText.isEmpty()) {
-         * // 调用AI服务进行内容审核
-         * JSONObject moderationResult = aiServiceUtils.moderateContent(plainText);
-         * // 获取审核决策
-         * AiServiceUtils.ModerationDecision decision =
-         * aiServiceUtils.getModerationDecision(moderationResult);
-         * 
-         * // 根据审核决策处理
-         * if (decision == AiServiceUtils.ModerationDecision.BLOCK) {
-         * return "帖子内容不符合规范，发表失败！";
-         * } else if (decision == AiServiceUtils.ModerationDecision.MANUAL_REVIEW) {
-         * // 对于需要人工审核的内容，标记为待审核状态
-         * topic.setStatus(1);
-         * needReview = true;
-         * }
-         * }
-         */
+        String reviewReason = null;
+
+        // AI审核功能
+        if (!plainText.trim().isEmpty()) {
+            // 调用AI服务进行内容审核
+            JSONObject moderationResult = AiServiceUtils.moderateContent(plainText, "topic", false);
+            // 获取审核决策
+            AiServiceUtils.ModerationDecision decision = AiServiceUtils.getModerationDecision(moderationResult);
+
+            // 根据审核决策处理
+            if (decision == AiServiceUtils.ModerationDecision.BLOCK) {
+                String reason = AiServiceUtils.getModerationReason(moderationResult);
+                return "帖子内容不符合规范" + (reason != null ? "：" + reason : "，发表失败！");
+            } else if (decision == AiServiceUtils.ModerationDecision.MANUAL_REVIEW) {
+                // 对于需要人工审核的内容，标记为待审核状态
+                topic.setStatus(1);
+                needReview = true;
+                reviewReason = AiServiceUtils.getModerationReason(moderationResult);
+            }
+        }
 
         if (this.save(topic)) {
             cacheUtils.deleteCachePattern(Const.FORUM_TOPIC_PREVIEW_CACHE + "*");
+            // 记录审核日志
+            if (needReview) {
+                AiServiceUtils.logModeration(topic.getId(), "topic", plainText, reviewReason);
+            }
             return needReview ? "帖子已提交，等待审核" : null;
         } else {
             return "内部错误，请联系管理员！";
@@ -200,6 +210,13 @@ public class TopicServiceImpl extends ServiceImpl<TopicMapper, Topic> implements
     public TopicDetailVO getTopic(int tid, int uid) {
         TopicDetailVO vo = new TopicDetailVO();
         Topic topic = baseMapper.selectById(tid);
+        if (topic == null) {
+            return null;
+        }
+        // 如果帖子被屏蔽且不是作者本人，返回null
+        if (topic.getStatus() != 0 && topic.getUid() != uid) {
+            return null;
+        }
         if (topic.getInvisible() == 1 && topic.getUid() != uid) {
             return null;
         }
@@ -209,8 +226,9 @@ public class TopicServiceImpl extends ServiceImpl<TopicMapper, Topic> implements
                 hasInteract(tid, uid, "collect"));
         vo.setInteract(interact);
         TopicDetailVO.User user = new TopicDetailVO.User();
-        vo.setUser(this.fillUserDetailsByPrivacy(user, topic.getUid()));
+        vo.setUser(this.fillTopicUserDetailsByPrivacy(user, topic.getUid()));
         vo.setComments(commentMapper.selectCount(Wrappers.<TopicComment>query().eq("tid", tid)));
+
         return vo;
     }
 
@@ -248,8 +266,8 @@ public class TopicServiceImpl extends ServiceImpl<TopicMapper, Topic> implements
             return "文章内容太多，发文失败！";
         if (!types.contains(vo.getType()))
             return "文章类型非法！";
-        if (prohibitedUtils.containsProhibitedWord(vo.getContent()))
-            return "包含违禁词，发文失败！";
+        if (prohibitedUtils.containsProhibitedWord(vo.getContent().toString()))
+            return "包含违禁词，更新失败！";
         int result = baseMapper.update(null, Wrappers.<Topic>update()
                 .eq("uid", uid)
                 .eq("id", vo.getId())
@@ -269,12 +287,12 @@ public class TopicServiceImpl extends ServiceImpl<TopicMapper, Topic> implements
         if (!flowUtils.limitPeriodCounterCheck(key, 7, 60))
             return "发表评论频繁，请稍后再试！";
 
-        // 提取纯文本内容进行AI审核（优先）
+        // 提取纯文本内容
         String plainText = extractPlainText(vo.getContent());
 
         // 违禁词检查作为兜底措施
         if (prohibitedUtils.containsProhibitedWord(vo.getContent()))
-            return "包含违禁词，发文失败！";
+            return "包含违禁词，评论失败！";
 
         TopicComment comment = new TopicComment();
         comment.setUid(uid);
@@ -282,34 +300,48 @@ public class TopicServiceImpl extends ServiceImpl<TopicMapper, Topic> implements
         comment.setTime(new Date());
         comment.setStatus(0); // 默认设置为正常状态
 
+        Topic topic = baseMapper.selectById(vo.getTid());
+        if (topic == null) {
+            return "帖子不存在";
+        }
+
         boolean needReview = false;
-        // 暂时注释掉AI审核功能
-        /*
-         * if (!plainText.isEmpty()) {
-         * // 调用AI服务进行内容审核
-         * JSONObject moderationResult = aiServiceUtils.moderateContent(plainText);
-         * // 获取审核决策
-         * AiServiceUtils.ModerationDecision decision =
-         * aiServiceUtils.getModerationDecision(moderationResult);
-         * 
-         * // 根据审核决策处理
-         * if (decision == AiServiceUtils.ModerationDecision.BLOCK) {
-         * return "评论内容不符合规范，发表失败！";
-         * } else if (decision == AiServiceUtils.ModerationDecision.MANUAL_REVIEW) {
-         * // 对于需要人工审核的内容，标记为待审核状态
-         * comment.setStatus(1);
-         * needReview = true;
-         * }
-         * }
-         */
+        String reviewReason = null;
+
+        // AI审核功能
+        if (!plainText.trim().isEmpty()) {
+            // 判断是否为表白墙
+            boolean isConfession = (topic.getType() == TYPE_CONFESSION);
+
+            // 调用AI服务进行内容审核
+            JSONObject moderationResult = AiServiceUtils.moderateContent(plainText, "comment", isConfession);
+            // 获取审核决策
+            AiServiceUtils.ModerationDecision decision = AiServiceUtils.getModerationDecision(moderationResult);
+
+            // 根据审核决策处理
+            if (decision == AiServiceUtils.ModerationDecision.BLOCK) {
+                String reason = AiServiceUtils.getModerationReason(moderationResult);
+                return "评论内容不符合规范" + (reason != null ? "：" + reason : "，发表失败！");
+            } else if (decision == AiServiceUtils.ModerationDecision.MANUAL_REVIEW) {
+                // 对于需要人工审核的内容，标记为待审核状态
+                comment.setStatus(1);
+                needReview = true;
+                reviewReason = AiServiceUtils.getModerationReason(moderationResult);
+            }
+        }
 
         commentMapper.insert(comment);
         cacheUtils.deleteCachePattern(Const.FORUM_TOPIC_PREVIEW_CACHE + "*");
-        Topic topic = baseMapper.selectById(vo.getTid());
+
+        // 记录审核日志
+        if (needReview) {
+            AiServiceUtils.logModeration(comment.getId(), "comment", plainText, reviewReason);
+        }
+
         Account account = accountMapper.selectById(uid);
         if (vo.getQuote() > 0) {
             TopicComment com = commentMapper.selectById(vo.getQuote());
-            if (!Objects.equals(account.getId(), com.getUid())) {
+            if (com != null && !Objects.equals(account.getId(), com.getUid())) {
                 notificationService.addNotification(
                         com.getUid(),
                         "您有新的帖子评论回复",
@@ -328,7 +360,7 @@ public class TopicServiceImpl extends ServiceImpl<TopicMapper, Topic> implements
 
     /**
      * 从富文本内容中提取纯文本
-     * 
+     *
      * @param content 富文本内容（JSON格式）
      * @return 纯文本
      */
@@ -429,6 +461,13 @@ public class TopicServiceImpl extends ServiceImpl<TopicMapper, Topic> implements
     }
 
     @Override
+    public Page<TopicComment> listCommentByUser(int uid, int page, int size) {
+        return commentMapper.selectPage(Page.of(page, size, true),
+                Wrappers.<TopicComment>query().eq("uid", uid)
+                        .orderByDesc("id"));
+    }
+
+    @Override
     public List<TopicSearchVO> searchTopic(String keyword) {
         List<SearchHit<TopicDocument>> list = topicRepository.findByTitleOrIntro(keyword);
         return list.stream().map(item -> {
@@ -453,8 +492,10 @@ public class TopicServiceImpl extends ServiceImpl<TopicMapper, Topic> implements
     @Override
     public void updateTopicType(TopicTypeVO vo) {
         TopicType topicType = mapper.selectById(vo.getId());
-        BeanUtils.copyProperties(vo, topicType);
-        mapper.updateById(topicType);
+        if (topicType != null) {
+            BeanUtils.copyProperties(vo, topicType);
+            mapper.updateById(topicType);
+        }
     }
 
     @Override
@@ -477,12 +518,13 @@ public class TopicServiceImpl extends ServiceImpl<TopicMapper, Topic> implements
     public void changeTopicType(int tid, int type) {
         if (baseMapper.update(null, Wrappers.<Topic>update()
                 .eq("id", tid)
-                .set("type", type)) > 1) {
+                .set("type", type)) > 0) {
             cacheUtils.deleteCachePattern(Const.FORUM_TOPIC_PREVIEW_CACHE + "*");
         }
     }
 
-    // 审核相关方法实现
+    // ==================== 审核相关方法实现 ====================
+
     @Override
     public Page<Topic> listPendingReviewTopics(int page, int size) {
         return baseMapper.selectPage(Page.of(page, size), Wrappers.<Topic>query()
@@ -507,73 +549,95 @@ public class TopicServiceImpl extends ServiceImpl<TopicMapper, Topic> implements
 
     @Override
     public void rejectTopic(int tid) {
+        // 拒绝帖子：设置为已拒绝状态(2)或直接删除
         baseMapper.update(null, Wrappers.<Topic>update()
                 .eq("id", tid)
-                .set("invisible", 1)
-                .set("status", 0));
+                .set("status", 2));
         cacheUtils.deleteCachePattern(Const.FORUM_TOPIC_PREVIEW_CACHE + "*");
     }
 
     @Override
     public void approveComment(int id) {
-        TopicComment comment = commentMapper.selectById(id);
-        if (comment != null) {
-            commentMapper.update(null, Wrappers.<TopicComment>update()
-                    .eq("id", id)
-                    .set("status", 0));
-            cacheUtils.deleteCachePattern(Const.FORUM_TOPIC_PREVIEW_CACHE + "*");
-        }
+        commentMapper.update(null, Wrappers.<TopicComment>update()
+                .eq("id", id)
+                .set("status", 0));
     }
 
     @Override
     public void rejectComment(int id) {
-        TopicComment comment = commentMapper.selectById(id);
-        if (comment != null) {
-            commentMapper.deleteById(id);
-            cacheUtils.deleteCachePattern(Const.FORUM_TOPIC_PREVIEW_CACHE + "*");
-        }
+        // 拒绝评论：设置为已拒绝状态(2)或直接删除
+        commentMapper.update(null, Wrappers.<TopicComment>update()
+                .eq("id", id)
+                .set("status", 2));
     }
 
     @Override
     public void batchApproveTopics(List<Integer> ids) {
-        baseMapper.update(null, Wrappers.<Topic>update()
-                .in("id", ids)
-                .set("status", 0));
-        cacheUtils.deleteCachePattern(Const.FORUM_TOPIC_PREVIEW_CACHE + "*");
+        if (ids == null || ids.isEmpty()) {
+            return;
+        }
+        for (Integer tid : ids) {
+            approveTopic(tid);
+        }
     }
 
     @Override
     public void batchRejectTopics(List<Integer> ids) {
-        baseMapper.update(null, Wrappers.<Topic>update()
-                .in("id", ids)
-                .set("invisible", 1)
-                .set("status", 0));
-        cacheUtils.deleteCachePattern(Const.FORUM_TOPIC_PREVIEW_CACHE + "*");
+        if (ids == null || ids.isEmpty()) {
+            return;
+        }
+        for (Integer tid : ids) {
+            rejectTopic(tid);
+        }
     }
 
     @Override
     public void batchApproveComments(List<Integer> ids) {
-        commentMapper.update(null, Wrappers.<TopicComment>update()
-                .in("id", ids)
-                .set("status", 0));
-        cacheUtils.deleteCachePattern(Const.FORUM_TOPIC_PREVIEW_CACHE + "*");
+        if (ids == null || ids.isEmpty()) {
+            return;
+        }
+        for (Integer id : ids) {
+            approveComment(id);
+        }
     }
 
     @Override
     public void batchRejectComments(List<Integer> ids) {
-        commentMapper.delete(Wrappers.<TopicComment>query().in("id", ids));
-        cacheUtils.deleteCachePattern(Const.FORUM_TOPIC_PREVIEW_CACHE + "*");
+        if (ids == null || ids.isEmpty()) {
+            return;
+        }
+        for (Integer id : ids) {
+            rejectComment(id);
+        }
+    }
+
+    // ==================== 私有方法 ====================
+
+    private boolean textLimitCheck(JSONObject object, int max) {
+        if (object == null) {
+            return false;
+        }
+        long length = 0;
+        for (Object op : object.getJSONArray("ops")) {
+            Object insert = JSONObject.from(op).get("insert");
+            if (insert instanceof String text) {
+                length += text.length();
+            }
+        }
+        return length <= max;
     }
 
     private boolean hasInteract(int tid, int uid, String type) {
         String key = tid + ":" + uid;
-        if (template.opsForHash().hasKey(type, key))
-            return Boolean.parseBoolean(template.opsForHash().entries(type).get(key).toString());
-        return baseMapper.userInteractCount(tid, uid, type) > 0;
+        if (Boolean.parseBoolean((String) template.opsForHash().get(type, key))) {
+            return true;
+        } else {
+            return baseMapper.userInteractCount(tid, uid, type) > 0;
+        }
     }
 
     private final Map<String, Boolean> state = new HashMap<>();
-    ScheduledExecutorService service = Executors.newScheduledThreadPool(2);
+    private final ScheduledExecutorService service = Executors.newScheduledThreadPool(2);
 
     private void saveInteractSchedule(String type) {
         if (!state.getOrDefault(type, false)) {
@@ -587,79 +651,151 @@ public class TopicServiceImpl extends ServiceImpl<TopicMapper, Topic> implements
 
     private void saveInteract(String type) {
         synchronized (type.intern()) {
-            List<Interact> check = new LinkedList<>();
-            List<Interact> uncheck = new LinkedList<>();
-            template.opsForHash().entries(type).forEach((k, v) -> {
-                if (Boolean.parseBoolean(v.toString()))
-                    check.add(Interact.parseInteract(k.toString(), type));
-                else
-                    uncheck.add(Interact.parseInteract(k.toString(), type));
-            });
-            if (!check.isEmpty())
-                baseMapper.addInteract(check, type);
-            if (!uncheck.isEmpty())
-                baseMapper.deleteInteract(uncheck, type);
+            List<Interact> addList = new ArrayList<>();
+            List<Interact> deleteList = new ArrayList<>();
+
+            template.opsForHash().entries(type)
+                    .entrySet()
+                    .stream()
+                    .forEach(e -> {
+                        String[] keys = e.getKey().toString().split(":");
+                        int tid = Integer.parseInt(keys[0]);
+                        int uid = Integer.parseInt(keys[1]);
+                        boolean state = Boolean.parseBoolean(e.getValue().toString());
+
+                        Interact interact = new Interact(tid, uid, new Date(), type);
+                        if (state) {
+                            // 检查是否已存在交互记录
+                            if (baseMapper.userInteractCount(tid, uid, type) == 0) {
+                                addList.add(interact);
+                            }
+                        } else {
+                            // 检查是否存在交互记录
+                            if (baseMapper.userInteractCount(tid, uid, type) > 0) {
+                                deleteList.add(interact);
+                            }
+                        }
+                    });
+
+            // 批量添加交互记录
+            if (!addList.isEmpty()) {
+                baseMapper.addInteract(addList, type);
+            }
+
+            // 批量删除交互记录
+            if (!deleteList.isEmpty()) {
+                baseMapper.deleteInteract(deleteList, type);
+            }
+
             template.delete(type);
         }
     }
 
-    private <T> T fillUserDetailsByPrivacy(T target, int uid) {
-        AccountDetails details = accountDetailsMapper.selectById(uid);
-        Account account = accountMapper.selectById(uid);
-        AccountPrivacy accountPrivacy = accountPrivacyMapper.selectById(uid);
-        String[] ignores = accountPrivacy.hiddenFields();
-        BeanUtils.copyProperties(account, target, ignores);
-        BeanUtils.copyProperties(details, target, ignores);
-        return target;
-    }
-
     private TopicPreviewVO resolveToPreview(Topic topic) {
         TopicPreviewVO vo = new TopicPreviewVO();
-        BeanUtils.copyProperties(accountMapper.selectById(topic.getUid()), vo);
         BeanUtils.copyProperties(topic, vo);
         vo.setLike(baseMapper.interactCount(topic.getId(), "like"));
         vo.setCollect(baseMapper.interactCount(topic.getId(), "collect"));
-        vo.setComment(commentMapper.selectCount(Wrappers.<TopicComment>query().eq("tid", topic.getId()).eq("status", 0))
-                .intValue());
-        List<String> images = new ArrayList<>();
-        StringBuilder previewText = new StringBuilder();
-        if (topic.getContent() != null) {
-            try {
-                JSONArray ops = JSONObject.parseObject(topic.getContent()).getJSONArray("ops");
-                this.shortContent(ops, previewText, obj -> images.add(obj.toString()));
-            } catch (Exception e) {
-                // 处理JSON解析错误，使用原始内容作为预览
-                previewText.append(
-                        topic.getContent().length() > 300 ? topic.getContent().substring(0, 300) : topic.getContent());
-            }
-        }
-        vo.setText(previewText.length() > 300 ? previewText.substring(0, 300) : previewText.toString());
-        vo.setImages(images);
+        vo.setComment(
+                (int) commentMapper.selectCount(Wrappers.<TopicComment>query().eq("tid", topic.getId())).longValue());
+        Account account = accountMapper.selectById(topic.getUid());
+        vo.setUsername(account.getUsername());
+        vo.setAvatar(account.getAvatar());
+        // 从内容中提取图片URL
+        vo.setImages(extractImagesFromContent(topic.getContent()));
+        // 提取纯文本内容
+        vo.setText(extractPlainText(topic.getContent()));
         return vo;
     }
 
-    private void shortContent(JSONArray ops, StringBuilder previewText, Consumer<Object> imageHandler) {
+    /**
+     * 从富文本内容中提取图片URL
+     */
+    private List<String> extractImagesFromContent(String content) {
+        List<String> images = new ArrayList<>();
+        try {
+            JSONObject contentObj = JSONObject.parseObject(content);
+            JSONArray ops = contentObj.getJSONArray("ops");
+            for (Object op : ops) {
+                JSONObject opObj = (JSONObject) op;
+                Object insert = opObj.get("insert");
+                if (insert instanceof JSONObject) {
+                    JSONObject insertObj = (JSONObject) insert;
+                    if (insertObj.containsKey("image")) {
+                        String imageUrl = insertObj.getString("image");
+                        images.add(imageUrl);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            // 解析失败时返回空列表
+        }
+        return images;
+    }
+
+    private void shortContent(JSONArray ops, StringBuilder builder, Consumer<Void> handleImage) {
         for (Object op : ops) {
             Object insert = JSONObject.from(op).get("insert");
             if (insert instanceof String text) {
-                if (previewText.length() >= 300)
-                    continue;
-                previewText.append(text);
-            } else if (insert instanceof Map<?, ?> map) {
-                Optional.ofNullable(map.get("image")).ifPresent(imageHandler);
+                if (builder.length() >= 300) {
+                    return;
+                }
+                builder.append(text);
+            } else {
+                handleImage.accept(null);
             }
         }
     }
 
-    private boolean textLimitCheck(JSONObject object, int max) {
-        if (object == null)
-            return false;
-        long length = 0;
-        for (Object op : object.getJSONArray("ops")) {
-            length += JSONObject.from(op).getString("insert").length();
-            if (length > max)
-                return false;
+    private CommentVO.User fillUserDetailsByPrivacy(CommentVO.User user, int uid) {
+        AccountDetails details = accountDetailsMapper.selectById(uid);
+        Account account = accountMapper.selectById(uid);
+        AccountPrivacy privacy = accountPrivacyMapper.selectById(uid);
+        user.setUsername(account.getUsername());
+        user.setAvatar(account.getAvatar());
+        if (privacy == null || privacy.isPhone()) {
+            user.setPhone(details.getPhone());
         }
-        return true;
+        if (privacy == null || privacy.isEmail()) {
+            // 从 Account 中获取邮箱信息
+            user.setEmail(account.getEmail());
+        }
+        if (privacy == null || privacy.isQq()) {
+            user.setQq(details.getQq());
+        }
+        if (privacy == null || privacy.isWx()) {
+            user.setWx(details.getWx());
+        }
+        // 转换性别类型：int -> boolean
+        user.setGender(details.getGender() == 1);
+        return user;
+    }
+
+    /**
+     * 填充 TopicDetailVO.User 的用户详情，考虑隐私设置
+     */
+    private TopicDetailVO.User fillTopicUserDetailsByPrivacy(TopicDetailVO.User user, int uid) {
+        AccountDetails details = accountDetailsMapper.selectById(uid);
+        Account account = accountMapper.selectById(uid);
+        AccountPrivacy privacy = accountPrivacyMapper.selectById(uid);
+        user.setId(account.getId());
+        user.setUsername(account.getUsername());
+        user.setAvatar(account.getAvatar());
+        user.setDesc(details.getDesc());
+        if (privacy == null || privacy.isPhone()) {
+            user.setPhone(details.getPhone());
+        }
+        if (privacy == null || privacy.isEmail()) {
+            // 从 Account 中获取邮箱信息
+            user.setEmail(account.getEmail());
+        }
+        if (privacy == null || privacy.isQq()) {
+            user.setQq(details.getQq());
+        }
+        if (privacy == null || privacy.isWx()) {
+            user.setWx(details.getWx());
+        }
+        user.setGender(details.getGender());
+        return user;
     }
 }
