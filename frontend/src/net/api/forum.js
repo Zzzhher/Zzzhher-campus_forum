@@ -74,6 +74,9 @@ export const apiForumUserTopic = (page, size, success) =>
 export const apiForumUserTopicDelete = (tid, success) =>
     get(`/api/forum/delete-topic?tid=${tid}`, success)
 
+export const apiForumUserComment = (page, size, success) =>
+    get(`/api/forum/user-comment?page=${page}&size=${size}`, success)
+
 export const apiTopicSearch = (keyword, success) =>
     get(`/api/forum/search-topic?keyword=${keyword}`, success)
 
