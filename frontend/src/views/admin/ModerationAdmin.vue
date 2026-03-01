@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { CircleCheck } from '@element-plus/icons-vue';
+import ProhibitedAdmin from './section/ProhibitedAdmin.vue';
 import {
   apiModerationPendingTopics,
   apiModerationPendingComments,
@@ -362,6 +363,10 @@ const extractPlainText = (content) => {
             @current-change="handlePageChange"
           />
         </div>
+      </el-tab-pane>
+      
+      <el-tab-pane label="违禁词管理" name="prohibited">
+        <ProhibitedAdmin />
       </el-tab-pane>
     </el-tabs>
   </div>

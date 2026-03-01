@@ -51,7 +51,47 @@ const router = createRouter({
                     path: 'forum-setting',
                     name: 'forum-setting',
                     component: () => import('@/views/settings/ForumSetting.vue')
-                }, {          path: 'privacy-setting',          name: 'privacy-setting',          component: () => import('@/views/settings/PrivacySetting.vue')        }, {          path: 'activity',          name: 'activity',          component: () => import('@/views/forum/ActivityView.vue')        }, {          path: 'activity-create',          name: 'activity-create',          component: () => import('@/views/forum/ActivityCreate.vue')        }, {          path: 'activity-detail/:id',          name: 'activity-detail',          component: () => import('@/views/forum/ActivityDetail.vue')        }, {          path: 'lost-found',          name: 'lost-found',          component: () => import('@/views/forum/LostFoundView.vue')        }, {          path: 'confession',          name: 'confession',          component: () => import('@/views/forum/ConfessionView.vue')        }
+                }, {
+                    path: 'privacy-setting',
+                    name: 'privacy-setting',
+                    component: () => import('@/views/settings/PrivacySetting.vue')
+                }, {
+                    path: 'activity',
+                    name: 'activity',
+                    component: () => import('@/views/forum/ActivityView.vue')
+                }, {
+                    path: 'activity-create',
+                    name: 'activity-create',
+                    component: () => import('@/views/forum/ActivityCreate.vue')
+                }, {
+                    path: 'activity-detail/:id',
+                    name: 'activity-detail',
+                    component: () => import('@/views/forum/ActivityDetail.vue')
+                }, {
+                    path: 'lost-found',
+                    name: 'lost-found',
+                    component: () => import('@/views/forum/LostFoundView.vue')
+                }, {
+                    path: 'confession',
+                    name: 'confession',
+                    component: () => import('@/views/forum/ConfessionView.vue')
+                }, {
+                    path: 'emotion-heatmap',
+                    name: 'emotion-heatmap',
+                    component: () => import('@/views/explore/EmotionHeatmap.vue')
+                }, {
+                    path: 'word-cloud',
+                    name: 'word-cloud',
+                    component: () => import('@/views/explore/WordCloud.vue')
+                }, {
+                    path: 'audit-summary',
+                    name: 'audit-summary',
+                    component: () => import('@/views/explore/AuditSummary.vue')
+                }, {
+                    path: 'ai-cases',
+                    name: 'ai-cases',
+                    component: () => import('@/views/explore/AICases.vue')
+                }
             ]
         }, {
             path: '/admin',
@@ -73,10 +113,39 @@ const router = createRouter({
                     path: 'email',
                     name: 'admin-email',
                     component: () => import('@/views/admin/EmailAdmin.vue')
-                }, {                    
-                    path: 'forum',                 
+                }, {
+                    path: 'forum',
                     name: 'admin-forum',
-                    component: () => import('@/views/admin/ForumAdmin.vue')                }, {                    path: 'activity',                    name: 'admin-activity',                    component: () => import('@/views/admin/ActivityAdmin.vue')                }, {                    path: 'lost-found',                    name: 'admin-lost-found',                    component: () => import('@/views/admin/LostFoundAdmin.vue')                }, {                    path: 'confession',                    name: 'admin-confession',                    component: () => import('@/views/admin/ConfessionAdmin.vue')                }
+                    component: () => import('@/views/admin/ForumAdmin.vue')
+                }, {
+                    path: 'activity',
+                    name: 'admin-activity',
+                    component: () => import('@/views/admin/ActivityAdmin.vue')
+                }, {
+                    path: 'lost-found',
+                    name: 'admin-lost-found',
+                    component: () => import('@/views/admin/LostFoundAdmin.vue')
+                }, {
+                    path: 'confession',
+                    name: 'admin-confession',
+                    component: () => import('@/views/admin/ConfessionAdmin.vue')
+                }, {
+                    path: 'emotion-heatmap',
+                    name: 'admin-emotion-heatmap',
+                    component: () => import('@/views/admin/EmotionHeatmapAdmin.vue')
+                }, {
+                    path: 'word-cloud',
+                    name: 'admin-word-cloud',
+                    component: () => import('@/views/admin/WordCloudAdmin.vue')
+                }, {
+                    path: 'audit-summary',
+                    name: 'admin-audit-summary',
+                    component: () => import('@/views/admin/AuditSummaryAdmin.vue')
+                }, {
+                    path: 'ai-cases',
+                    name: 'admin-ai-cases',
+                    component: () => import('@/views/admin/AICasesAdmin.vue')
+                }
             ]
         }
     ]

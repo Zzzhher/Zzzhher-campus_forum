@@ -8,7 +8,11 @@ import {
   Notification, Operation,
   Position,
   School, Search,
-  Umbrella, User
+  Umbrella, User,
+  DataAnalysis,
+  Cloudy,
+  Timer,
+  Flag
 } from "@element-plus/icons-vue";
 import LightCard from "@/components/LightCard.vue";
 import UserInfo from "@/components/UserInfo.vue";
@@ -24,11 +28,11 @@ const userMenu = [
     title: '校园论坛', icon: Location, sub: [
       { title: '帖子广场', icon: ChatDotSquare, index: '/index' },      { title: '校园活动', icon: Notification, index: '/index/activity' },      { title: '失物招领', icon: Bell, index: '/index/lost-found' },      { title: '表白墙', icon: Umbrella, index: '/index/confession' }
     ]
-  }, {
-    title: '探索与发现', icon: Position, sub: [
-      { title: '成绩查询', icon: Document },
-      { title: '班级课程表', icon: Files },
-      { title: '在线图书馆', icon: Collection }
+  }, {    title: '探索与发现', icon: Position, sub: [
+      { title: '实时情绪热力图', icon: DataAnalysis, index: '/index/emotion-heatmap' },
+      { title: '高频敏感词云', icon: Cloudy, index: '/index/word-cloud' },
+      { title: '审核日志摘要', icon: Timer, index: '/index/audit-summary' },
+      { title: 'AI审核案例库', icon: Flag, index: '/index/ai-cases' }
     ]
   }, {
     title: '个人设置', icon: Operation, sub: [

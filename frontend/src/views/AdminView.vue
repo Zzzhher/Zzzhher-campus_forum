@@ -1,18 +1,15 @@
 <script setup>
 import {
-  Bell,
   CircleCheck,
   ChatDotSquare,
-  Collection,
-  Document,
-  Files,
   Location,
   Message,
-  Notification,
   Position,
-  School,
-  Umbrella,
   User,
+  DataAnalysis,
+  Cloudy,
+  Timer,
+  Flag
 } from "@element-plus/icons-vue";
 import UserInfo from "@/components/UserInfo.vue";
 import { inject, onMounted, ref } from "vue";
@@ -26,18 +23,16 @@ const adminMenu = [
       { title: "邮件管理", icon: Message, index: "/admin/email" },
       { title: "帖子广场管理", icon: ChatDotSquare, index: "/admin/forum" },
       { title: "内容审核管理", icon: CircleCheck, index: "/admin/moderation" },
-      { title: "校园活动管理", icon: Notification, index: "/admin/activity" },      
-      { title: "失物招领管理", icon: Bell, index: "/admin/lost-found" },
-      { title: "表白墙管理", icon: Umbrella, index: "/admin/confession" },
     ],
   },
   {
     title: "探索与发现管理",
     icon: Position,
     sub: [
-      { title: "成绩管理", icon: Document },
-      { title: "课程表管理", icon: Files },
-      { title: "在线图书馆管理", icon: Collection },
+      { title: "实时情绪热力图管理", icon: DataAnalysis, index: "/admin/emotion-heatmap" },
+      { title: "高频敏感词云管理", icon: Cloudy, index: "/admin/word-cloud" },
+      { title: "审核日志摘要管理", icon: Timer, index: "/admin/audit-summary" },
+      { title: "AI审核案例库管理", icon: Flag, index: "/admin/ai-cases" },
     ],
   },
 ];
