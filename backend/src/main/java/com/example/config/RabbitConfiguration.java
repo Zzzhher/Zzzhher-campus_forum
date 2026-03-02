@@ -36,7 +36,7 @@ public class RabbitConfiguration {
 
     @Bean
     public Binding dlBinding(@Qualifier("errorExchange") Exchange exchange,
-                             @Qualifier("errorQueue") Queue queue) {
+            @Qualifier("errorQueue") Queue queue) {
         return BindingBuilder
                 .bind(queue)
                 .to(exchange)
@@ -45,12 +45,32 @@ public class RabbitConfiguration {
     }
 
     @Bean("mailQueue")
-    public Queue queue(){
+    public Queue queue() {
         return QueueBuilder
                 .durable(Const.MQ_MAIL)
                 .deadLetterExchange("dlx.direct")
                 .deadLetterRoutingKey("error-message")
                 .ttl(3 * 60 * 1000)
+                .build();
+    }
+
+    @Bean("aiModerationQueue")
+    public Queue aiModerationQueue() {
+        return QueueBuilder
+                .durable(Const.MQ_AI_MODERATION)
+                .deadLetterExchange("dlx.direct")
+                .deadLetterRoutingKey("error-message")
+                .ttl(5 * 60 * 1000)
+                .build();
+    }
+
+    @Bean("aiResponseQueue")
+    public Queue aiResponseQueue() {
+        return QueueBuilder
+                .durable(Const.MQ_AI_RESPONSE)
+                .deadLetterExchange("dlx.direct")
+                .deadLetterRoutingKey("error-message")
+                .ttl(5 * 60 * 1000)
                 .build();
     }
 }
