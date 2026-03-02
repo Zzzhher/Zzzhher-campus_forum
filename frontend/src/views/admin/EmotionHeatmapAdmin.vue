@@ -1,20 +1,27 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import * as echarts from 'echarts';
+import { get } from '@/net';
 
 const chartRef = ref(null);
 let chartInstance = null;
+const timeRange = ref('today');
+const emotionData = ref([]);
 
-// Mock data for emotion distribution (admin version with more details)
-const emotionData = [
-  { name: '校园活动', positive: 65, neutral: 20, negative: 15, total: 120 },
-  { name: '表白墙', positive: 75, neutral: 15, negative: 10, total: 150 },
-  { name: '失物招领', positive: 80, neutral: 15, negative: 5, total: 80 },
-  { name: '帖子广场', positive: 60, neutral: 25, negative: 15, total: 200 }
-];
+const fetchEmotionData = () => {
+  get('/api/admin/moderation/stats/emotion-heatmap',
+    (data) => {
+      emotionData.value = data;
+      initChart();
+    },
+    (message) => {
+      console.error('获取情感热力图数据失败:', message);
+    }
+  );
+};
 
 const initChart = () => {
-  if (chartRef.value) {
+  if (chartRef.value && emotionData.value.length > 0) {
     chartInstance = echarts.init(chartRef.value);
     
     const option = {
@@ -29,12 +36,11 @@ const initChart = () => {
         },
         formatter: function(params) {
           const dataIndex = params[0].dataIndex;
-          const total = emotionData[dataIndex].total;
+          const total = 100; // 百分比总和
           let result = `${params[0].name}<br/>`;
           params.forEach(item => {
-            result += `${item.marker}${item.seriesName}: ${item.value}% (${Math.round(item.value * total / 100)}条)<br/>`;
+            result += `${item.marker}${item.seriesName}: ${item.value}%<br/>`;
           });
-          result += `总计: ${total}条`;
           return result;
         }
       },
@@ -50,7 +56,7 @@ const initChart = () => {
       },
       xAxis: {
         type: 'category',
-        data: emotionData.map(item => item.name)
+        data: emotionData.value.map(item => item.name)
       },
       yAxis: {
         type: 'value',
@@ -64,7 +70,7 @@ const initChart = () => {
           emphasis: {
             focus: 'series'
           },
-          data: emotionData.map(item => item.positive),
+          data: emotionData.value.map(item => item.positive),
           itemStyle: {
             color: '#52c41a'
           }
@@ -76,7 +82,7 @@ const initChart = () => {
           emphasis: {
             focus: 'series'
           },
-          data: emotionData.map(item => item.neutral),
+          data: emotionData.value.map(item => item.neutral),
           itemStyle: {
             color: '#1890ff'
           }
@@ -88,7 +94,7 @@ const initChart = () => {
           emphasis: {
             focus: 'series'
           },
-          data: emotionData.map(item => item.negative),
+          data: emotionData.value.map(item => item.negative),
           itemStyle: {
             color: '#ff4d4f'
           }
@@ -104,8 +110,12 @@ const initChart = () => {
   }
 };
 
+const refreshData = async () => {
+  await fetchEmotionData();
+};
+
 onMounted(() => {
-  initChart();
+  fetchEmotionData();
 });
 </script>
 
@@ -115,7 +125,7 @@ onMounted(() => {
       <template #header>
         <div class="card-header">
           <span>实时情绪热力图管理</span>
-          <el-select v-model="timeRange" size="small">
+          <el-select v-model="timeRange" size="small" @change="fetchEmotionData">
             <el-option label="今日" value="today" />
             <el-option label="本周" value="week" />
             <el-option label="本月" value="month" />
@@ -130,7 +140,7 @@ onMounted(() => {
       <el-divider />
       <div class="admin-actions">
         <el-button type="primary" size="small">导出数据</el-button>
-        <el-button type="success" size="small">刷新数据</el-button>
+        <el-button type="success" size="small" @click="refreshData">刷新数据</el-button>
       </div>
     </el-card>
   </div>

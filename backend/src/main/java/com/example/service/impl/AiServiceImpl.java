@@ -3,6 +3,7 @@ package com.example.service.impl;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.example.service.AiService;
+import com.example.utils.AiServiceUtils;
 import jakarta.annotation.Resource;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.UserMessage;
@@ -20,6 +21,9 @@ public class AiServiceImpl implements AiService {
 
     @Resource
     ChatModel chatModel;
+
+    @Resource
+    AiServiceUtils aiServiceUtils;
 
     @Override
     public SseEmitter chatWithAi(JSONArray context) {
@@ -54,24 +58,60 @@ public class AiServiceImpl implements AiService {
         Prompt chatPrompt = new Prompt(new UserMessage(prompt));
         ChatResponse response = chatModel.call(chatPrompt);
         if (response.getResult() == null || response.getResult().getOutput() == null) {
-            return false; // 默认不认为包含虚假宣传，避免空指针异常
+            return false;
         }
         String result = response.getResult().getOutput().getText();
         return result.contains("是");
     }
 
+    /**
+     * 使用自训练的LSTM模型进行情感分析
+     * 不再使用Spring AI，而是调用Python Flask服务的LSTM模型
+     */
     @Override
     public Integer analyzeSentiment(String text) {
-        String prompt = "请分析以下文本的情感倾向，正面情感返回1，负面情感返回-1，中性返回0。\n\n" + text;
-        Prompt chatPrompt = new Prompt(new UserMessage(prompt));
-        ChatResponse response = chatModel.call(chatPrompt);
-        if (response.getResult() == null || response.getResult().getOutput() == null) {
-            return 0; // 默认返回中性情感，避免空指针异常
-        }
-        String result = response.getResult().getOutput().getText();
         try {
-            return Integer.parseInt(result.trim());
-        } catch (NumberFormatException e) {
+            // 调用自训练的LSTM模型服务
+            JSONObject moderationResult = AiServiceUtils.moderateContent(text);
+
+            if (moderationResult == null || !moderationResult.getBoolean("success")) {
+                return 0;
+            }
+
+            JSONObject data = moderationResult.getJSONObject("data");
+            if (data == null) {
+                return 0;
+            }
+
+            // 获取情感标签
+            String sentimentLabel = data.getString("sentiment");
+            if (sentimentLabel != null) {
+                switch (sentimentLabel) {
+                    case "正向":
+                    case "positive":
+                        return 1;
+                    case "负向":
+                    case "negative":
+                        return -1;
+                    case "中性":
+                    case "neutral":
+                    default:
+                        return 0;
+                }
+            }
+
+            // 如果没有情感标签，根据置信度判断
+            Double confidence = data.getDouble("confidence");
+            if (confidence != null) {
+                if (confidence > 0.7) {
+                    return 1;
+                } else if (confidence < 0.3) {
+                    return -1;
+                }
+            }
+
+            return 0;
+        } catch (Exception e) {
             return 0;
         }
     }

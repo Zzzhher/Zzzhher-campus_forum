@@ -267,4 +267,72 @@ INSERT INTO `db_topic_type` VALUES (3, '表白墙', '本板块是校园里的情
 INSERT INTO `db_topic_type` VALUES (4, '日常闲聊', '本板块是校园里的轻松闲聊阵地，同学们可在此分享校园新鲜事、讨论热门话题、约饭组队或交流生活点滴。无特定主题限制，主打轻松随性，是师生日常互动、拉近距离的核心区域。', '#86DE4F');
 INSERT INTO `db_topic_type` VALUES (5, '问题反馈', '本板块是校园平台的用户反馈中心，同学们在使用过程中遇到任何问题（如页面报错、功能异常、内容审核等），都可以在此提交。你的每一条反馈，都是我们改进服务、打造更好校园社区的重要依据。', '#5E5CDE');
 
+-- ----------------------------
+-- Table structure for db_moderation_log
+-- ----------------------------
+DROP TABLE IF EXISTS `db_moderation_log`;
+CREATE TABLE `db_moderation_log`  (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `content_id` int NULL DEFAULT NULL COMMENT '内容ID（帖子或评论ID）',
+  `content_type` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '内容类型：topic/comment',
+  `text` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL COMMENT '审核文本内容',
+  `action` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '审核决策：ALLOW/BLOCK/MANUAL_REVIEW',
+  `reason` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '审核原因',
+  `sentiment_label` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '情感标签：正向/中性/负向',
+  `sentiment_confidence` decimal(5, 4) NULL DEFAULT NULL COMMENT '情感置信度',
+  `sensitive_words` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '命中的敏感词，逗号分隔',
+  `risk_score` int NULL DEFAULT NULL COMMENT '敏感词风险分数',
+  `is_fallback` tinyint NULL DEFAULT 0 COMMENT '是否为降级审核：0-否，1-是',
+  `create_time` datetime NULL DEFAULT NULL,
+  PRIMARY KEY (`id`) USING BTREE,
+  INDEX `idx_content`(`content_id` ASC, `content_type` ASC) USING BTREE,
+  INDEX `idx_action`(`action` ASC) USING BTREE,
+  INDEX `idx_time`(`create_time` ASC) USING BTREE
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = DYNAMIC COMMENT = '内容审核日志表';
+
+-- ----------------------------
+-- Records of db_moderation_log
+-- ----------------------------
+INSERT INTO `db_moderation_log` VALUES (1, 1, 'topic', '这是一条正常的学习交流帖子，请问高数怎么复习？', 'ALLOW', '内容正常，通过审核', '中性', 0.8500, NULL, 10, 0, '2026-03-02 09:30:00');
+INSERT INTO `db_moderation_log` VALUES (2, 2, 'topic', '寻找代课，价格面议，有意者加QQ', 'BLOCK', '涉及违规交易', '负向', 0.9200, '代课', 85, 0, '2026-03-02 10:15:00');
+INSERT INTO `db_moderation_log` VALUES (3, 3, 'topic', '今天天气真好，适合去图书馆学习', 'ALLOW', '内容正常，通过审核', '正向', 0.7800, NULL, 5, 0, '2026-03-02 11:00:00');
+INSERT INTO `db_moderation_log` VALUES (4, 4, 'comment', '傻逼，你说的不对', 'BLOCK', '包含侮辱性词汇', '负向', 0.9500, '傻逼', 95, 0, '2026-03-02 14:20:00');
+INSERT INTO `db_moderation_log` VALUES (5, 5, 'topic', '兼职刷单，日赚500，轻松赚钱', 'BLOCK', '涉嫌诈骗信息', '负向', 0.8800, '刷单', 90, 0, '2026-03-02 15:45:00');
+INSERT INTO `db_moderation_log` VALUES (6, 6, 'comment', '我觉得这个问题需要再讨论一下', 'ALLOW', '内容正常，通过审核', '中性', 0.7200, NULL, 15, 0, '2026-03-02 16:30:00');
+INSERT INTO `db_moderation_log` VALUES (7, 7, 'topic', '校园卡丢失，有捡到者请联系，必有重谢', 'MANUAL_REVIEW', '需要人工确认', '中性', 0.6500, NULL, 30, 0, '2026-03-02 17:00:00');
+INSERT INTO `db_moderation_log` VALUES (8, 8, 'comment', '谢谢分享，很有用的信息', 'ALLOW', '内容正常，通过审核', '正向', 0.8100, NULL, 8, 0, '2026-03-02 18:15:00');
+INSERT INTO `db_moderation_log` VALUES (9, 9, 'topic', '出售二手教材，价格优惠', 'ALLOW', '内容正常，通过审核', '中性', 0.7000, NULL, 20, 0, '2026-03-02 19:30:00');
+INSERT INTO `db_moderation_log` VALUES (10, 10, 'comment', '滚出去，这里不欢迎你', 'BLOCK', '包含攻击性语言', '负向', 0.9300, '滚', 88, 0, '2026-03-02 20:00:00');
+INSERT INTO `db_moderation_log` VALUES (11, 11, 'topic', '请问学校食堂几点开门？', 'ALLOW', '内容正常，通过审核', '中性', 0.7500, NULL, 5, 0, '2026-03-02 21:00:00');
+INSERT INTO `db_moderation_log` VALUES (12, 12, 'comment', '这个帖子太棒了，收藏了！', 'ALLOW', '内容正常，通过审核', '正向', 0.8200, NULL, 10, 0, '2026-03-02 22:30:00');
+
+-- ----------------------------
+-- Table structure for db_model_evaluation
+-- ----------------------------
+DROP TABLE IF EXISTS `db_model_evaluation`;
+CREATE TABLE `db_model_evaluation`  (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `model_version` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '模型版本号',
+  `accuracy` decimal(5, 4) NULL DEFAULT NULL COMMENT '准确率',
+  `precision_score` decimal(5, 4) NULL DEFAULT NULL COMMENT '精确率',
+  `recall` decimal(5, 4) NULL DEFAULT NULL COMMENT '召回率',
+  `f1_score` decimal(5, 4) NULL DEFAULT NULL COMMENT 'F1分数',
+  `eval_date` date NULL DEFAULT NULL COMMENT '评估日期',
+  `eval_time` datetime NULL DEFAULT NULL COMMENT '评估时间',
+  `test_samples` int NULL DEFAULT NULL COMMENT '测试样本数',
+  `training_samples` int NULL DEFAULT NULL COMMENT '训练样本数',
+  `epochs` int NULL DEFAULT NULL COMMENT '训练轮数',
+  `batch_size` int NULL DEFAULT NULL COMMENT '批次大小',
+  `learning_rate` decimal(8, 6) NULL DEFAULT NULL COMMENT '学习率',
+  `model_path` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '模型文件路径',
+  `confusion_matrix` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL COMMENT '混淆矩阵JSON',
+  `class_report` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL COMMENT '分类报告JSON',
+  `is_best` tinyint NULL DEFAULT 0 COMMENT '是否为最佳模型：0-否，1-是',
+  `remark` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '备注',
+  PRIMARY KEY (`id`) USING BTREE,
+  INDEX `idx_version`(`model_version` ASC) USING BTREE,
+  INDEX `idx_eval_date`(`eval_date` ASC) USING BTREE,
+  INDEX `idx_is_best`(`is_best` ASC) USING BTREE
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = DYNAMIC COMMENT = '模型评估指标表';
+
 SET FOREIGN_KEY_CHECKS = 1;

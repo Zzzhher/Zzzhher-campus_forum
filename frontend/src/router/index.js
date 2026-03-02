@@ -76,21 +76,17 @@ const router = createRouter({
                     name: 'confession',
                     component: () => import('@/views/forum/ConfessionView.vue')
                 }, {
-                    path: 'emotion-heatmap',
-                    name: 'emotion-heatmap',
-                    component: () => import('@/views/explore/EmotionHeatmap.vue')
+                    path: 'driving-school',
+                    name: 'driving-school',
+                    component: () => import('@/views/explore/DrivingSchool.vue')
                 }, {
-                    path: 'word-cloud',
-                    name: 'word-cloud',
-                    component: () => import('@/views/explore/WordCloud.vue')
+                    path: 'resource-share',
+                    name: 'resource-share',
+                    component: () => import('@/views/explore/ResourceShare.vue')
                 }, {
-                    path: 'audit-summary',
-                    name: 'audit-summary',
-                    component: () => import('@/views/explore/AuditSummary.vue')
-                }, {
-                    path: 'ai-cases',
-                    name: 'ai-cases',
-                    component: () => import('@/views/explore/AICases.vue')
+                    path: 'user-activity',
+                    name: 'user-activity',
+                    component: () => import('@/views/explore/UserActivity.vue')
                 }
             ]
         }, {

@@ -109,3 +109,47 @@ export const apiModerationResetCircuitBreaker = (success) =>
  */
 export const apiModerationHealth = (success) =>
     get(`/api/admin/moderation/health`, success);
+
+// ==================== 数据统计相关接口 ====================
+
+/**
+ * 获取情感分布统计
+ * @param success 成功回调
+ */
+export const apiModerationSentimentStats = (success) =>
+    get(`/api/admin/moderation/stats/sentiment`, success);
+
+/**
+ * 获取审核决策分布统计
+ * @param success 成功回调
+ */
+export const apiModerationActionStats = (success) =>
+    get(`/api/admin/moderation/stats/action`, success);
+
+/**
+ * 获取每日审核趋势
+ * @param success 成功回调
+ */
+export const apiModerationDailyStats = (success) =>
+    get(`/api/admin/moderation/stats/daily`, success);
+
+/**
+ * 获取敏感词词云数据
+ * @param success 成功回调
+ */
+export const apiModerationSensitiveWords = (success) =>
+    get(`/api/admin/moderation/stats/sensitive-words`, success);
+
+/**
+ * 获取综合统计面板数据
+ * @param success 成功回调
+ */
+export const apiModerationDashboard = (success) =>
+    get(`/api/admin/moderation/stats/dashboard`, success);
+
+/**
+ * 获取情感热力图数据
+ * @param success 成功回调
+ */
+export const apiModerationEmotionHeatmap = (success) =>
+    get(`/api/admin/moderation/stats/emotion-heatmap`, success);

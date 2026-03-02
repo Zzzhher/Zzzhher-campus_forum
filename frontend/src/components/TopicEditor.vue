@@ -152,7 +152,16 @@ function loadDraft() {
   }
 }
 
+const isPublished = ref(false);
+
 function handleClose() {
+  // 如果已经发布成功，直接关闭不询问
+  if (isPublished.value) {
+    emit("close");
+    return;
+  }
+  
+  // 未发布时，有内容才询问保存草稿
   if (hasContent()) {
     ElMessageBox.confirm(
       "是否保存草稿？",
@@ -190,8 +199,9 @@ function submitTopic() {
     return;
   }
   props.submit(editor, () => {
-    // 发布成功后清除草稿
+    // 发布成功后清除草稿并标记已发布
     localStorage.removeItem("topicDraft");
+    isPublished.value = true;
     emit("success");
   });
 }

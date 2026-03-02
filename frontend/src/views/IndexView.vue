@@ -9,10 +9,9 @@ import {
   Position,
   School, Search,
   Umbrella, User,
-  DataAnalysis,
-  Cloudy,
-  Timer,
-  Flag
+  School as SchoolIcon,
+  Folder,
+  TrendCharts
 } from "@element-plus/icons-vue";
 import LightCard from "@/components/LightCard.vue";
 import UserInfo from "@/components/UserInfo.vue";
@@ -29,10 +28,9 @@ const userMenu = [
       { title: '帖子广场', icon: ChatDotSquare, index: '/index' },      { title: '校园活动', icon: Notification, index: '/index/activity' },      { title: '失物招领', icon: Bell, index: '/index/lost-found' },      { title: '表白墙', icon: Umbrella, index: '/index/confession' }
     ]
   }, {    title: '探索与发现', icon: Position, sub: [
-      { title: '实时情绪热力图', icon: DataAnalysis, index: '/index/emotion-heatmap' },
-      { title: '高频敏感词云', icon: Cloudy, index: '/index/word-cloud' },
-      { title: '审核日志摘要', icon: Timer, index: '/index/audit-summary' },
-      { title: 'AI审核案例库', icon: Flag, index: '/index/ai-cases' }
+      { title: '校园驾校', icon: SchoolIcon, index: '/index/driving-school' },
+      { title: '资源共享', icon: Folder, index: '/index/resource-share' },
+      { title: '我的活跃度', icon: TrendCharts, index: '/index/user-activity' }
     ]
   }, {
     title: '个人设置', icon: Operation, sub: [

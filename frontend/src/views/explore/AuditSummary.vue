@@ -1,64 +1,88 @@
 <script setup>
 import { ref, onMounted } from 'vue';
+import { apiModerationDashboard } from '@/net/api/moderation';
+import { ElMessage } from 'element-plus';
 
-// Mock data for audit summary
+const loading = ref(false);
 const auditData = ref({
-  total: 127,
-  allowed: 110,
-  reviewed: 15,
-  blocked: 2,
+  total: 0,
+  allowed: 0,
+  reviewed: 0,
+  blocked: 0,
   date: new Date().toLocaleDateString()
 });
 
-// Mock data for recent audit records
-const recentRecords = ref([
-  {
-    id: 1,
-    content: '课程太难了',
-    status: 'allowed',
-    statusText: '允许',
-    reason: '合理吐槽',
-    time: '10:30'
-  },
-  {
-    id: 2,
-    content: '有人要刷单吗？',
-    status: 'blocked',
-    statusText: '拦截',
-    reason: '违规内容',
-    time: '10:25'
-  },
-  {
-    id: 3,
-    content: '寻找代课，价格面议',
-    status: 'blocked',
-    statusText: '拦截',
-    reason: '违规内容',
-    time: '10:20'
-  },
-  {
-    id: 4,
-    content: '考试要挂科了，怎么办？',
-    status: 'allowed',
-    statusText: '允许',
-    reason: '合理求助',
-    time: '10:15'
-  }
-]);
+const recentRecords = ref([]);
 
 const getStatusType = (status) => {
   switch (status) {
-    case 'allowed': return 'success';
-    case 'blocked': return 'danger';
-    case 'reviewed': return 'warning';
-    default: return 'info';
+    case 'allowed':
+    case 'ALLOW':
+      return 'success';
+    case 'blocked':
+    case 'BLOCK':
+      return 'danger';
+    case 'reviewed':
+    case 'MANUAL_REVIEW':
+      return 'warning';
+    default:
+      return 'info';
   }
 };
+
+const getStatusText = (status) => {
+  switch (status) {
+    case 'ALLOW':
+      return '允许';
+    case 'BLOCK':
+      return '拦截';
+    case 'MANUAL_REVIEW':
+      return '人工复核';
+    default:
+      return status;
+  }
+};
+
+const fetchData = () => {
+  loading.value = true;
+  apiModerationDashboard((data) => {
+    // 处理实时统计数据
+    const realtime = data.realtime || {};
+    auditData.value = {
+      total: realtime.total || 0,
+      allowed: realtime.allow || 0,
+      reviewed: realtime.manual || 0,
+      blocked: realtime.block || 0,
+      date: new Date().toLocaleDateString()
+    };
+
+    // 处理最近审核记录（从每日统计数据生成）
+    const dailyStats = data.daily || [];
+    recentRecords.value = dailyStats.slice(-5).map((item, index) => ({
+      id: index + 1,
+      content: `${item.date} 审核内容`,
+      status: item.count > 0 ? 'ALLOW' : 'BLOCK',
+      statusText: item.count > 0 ? '正常' : '拦截',
+      reason: '系统自动审核',
+      time: item.date
+    }));
+
+    loading.value = false;
+  }, (error) => {
+    loading.value = false;
+    ElMessage.error('获取审核摘要数据失败');
+    console.error(error);
+  });
+};
+
+onMounted(() => {
+  fetchData();
+});
 </script>
 
 <template>
   <div class="audit-summary">
-    <el-card shadow="hover">
+    <el-card shadow="hover" v-loading="loading">
       <template #header>
         <div class="card-header">
           <span>审核日志摘要</span>
@@ -99,75 +123,67 @@ const getStatusType = (status) => {
           </el-table-column>
           <el-table-column prop="statusText" label="状态" width="80">
             <template #default="scope">
-              <el-tag :type="getStatusType(scope.row.status)">{{ scope.row.statusText }}</el-tag>
+              <el-tag :type="getStatusType(scope.row.status)" size="small">
+                {{ getStatusText(scope.row.status) }}
+              </el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="reason" label="原因" width="120" />
-          <el-table-column prop="time" label="时间" width="80" />
+          <el-table-column prop="reason" label="原因" min-width="150" />
+          <el-table-column prop="time" label="时间" width="100" />
         </el-table>
-      </div>
-      <div class="audit-desc">
-        <p>数据来源：查询 comment.status 字段</p>
       </div>
     </el-card>
   </div>
 </template>
 
-<style lang="less" scoped>
+<style scoped>
 .audit-summary {
   padding: 20px;
-  
-  .card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-  
-  .summary-stats {
-    display: flex;
-    justify-content: space-around;
-    align-items: center;
-    margin: 30px 0;
-    
-    .stat-item {
-      text-align: center;
-      flex: 1;
-      
-      .stat-number {
-        font-size: 32px;
-        font-weight: bold;
-        color: #1890ff;
-      }
-      
-      .stat-label {
-        font-size: 14px;
-        color: #666;
-        margin-top: 5px;
-      }
-    }
-    
-    .stat-divider {
-      width: 1px;
-      height: 60px;
-      background-color: #eaeaea;
-    }
-  }
-  
-  .recent-records {
-    margin-top: 20px;
-  }
-  
-  .content-cell {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 300px;
-  }
-  
-  .audit-desc {
-    margin-top: 20px;
-    font-size: 14px;
-    color: #666;
-  }
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.summary-stats {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  padding: 20px 0;
+}
+
+.stat-item {
+  text-align: center;
+}
+
+.stat-number {
+  font-size: 32px;
+  font-weight: bold;
+  color: #409EFF;
+}
+
+.stat-label {
+  font-size: 14px;
+  color: #666;
+  margin-top: 8px;
+}
+
+.stat-divider {
+  width: 1px;
+  height: 40px;
+  background-color: #e0e0e0;
+}
+
+.recent-records h4 {
+  margin-bottom: 15px;
+  color: #333;
+}
+
+.content-cell {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 </style>

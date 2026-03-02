@@ -2,33 +2,18 @@
 import { ref, onMounted } from 'vue';
 import * as echarts from 'echarts';
 import 'echarts-wordcloud';
+import { apiModerationSensitiveWords } from '@/net/api/moderation';
+import { ElMessage } from 'element-plus';
 
 const chartRef = ref(null);
 let chartInstance = null;
-
-// Mock data for sensitive words
-const wordData = [
-  { name: '刷单', value: 80 },
-  { name: '代课', value: 65 },
-  { name: '太难了', value: 55 },
-  { name: '考试', value: 50 },
-  { name: '作业', value: 45 },
-  { name: '论文', value: 40 },
-  { name: '挂科', value: 35 },
-  { name: '兼职', value: 30 },
-  { name: '实习', value: 25 },
-  { name: '毕业', value: 20 },
-  { name: '压力', value: 18 },
-  { name: '焦虑', value: 15 },
-  { name: '失眠', value: 12 },
-  { name: '抑郁', value: 10 },
-  { name: '请假', value: 8 }
-];
+const loading = ref(false);
+const wordData = ref([]);
 
 const initChart = () => {
-  if (chartRef.value) {
+  if (chartRef.value && wordData.value.length > 0) {
     chartInstance = echarts.init(chartRef.value);
-    
+
     const option = {
       title: {
         text: '高频敏感词云',
@@ -73,62 +58,59 @@ const initChart = () => {
               shadowColor: '#333'
             }
           },
-          data: wordData
+          data: wordData.value
         }
       ]
     };
-    
+
     chartInstance.setOption(option);
-    
+
     window.addEventListener('resize', () => {
       chartInstance.resize();
     });
   }
 };
 
+const fetchData = () => {
+  loading.value = true;
+  apiModerationSensitiveWords((data) => {
+    wordData.value = data;
+    loading.value = false;
+    initChart();
+  }, (error) => {
+    loading.value = false;
+    ElMessage.error('获取敏感词数据失败');
+    console.error(error);
+  });
+};
+
 onMounted(() => {
-  initChart();
+  fetchData();
 });
 </script>
 
 <template>
   <div class="word-cloud">
-    <el-card shadow="hover">
+    <el-card shadow="hover" v-loading="loading">
       <template #header>
         <div class="card-header">
           <span>高频敏感词云</span>
-          <el-tag size="small" type="warning">近期数据</el-tag>
+          <el-tag size="small" type="warning">近7天数据</el-tag>
         </div>
       </template>
-      <div class="chart-container" ref="chartRef"></div>
-      <div class="chart-desc">
-        <p>显示近期评论中出现的高频风险词（如"刷单""代课""太难了"）</p>
-        <p>数据来源：从 db_topic_comment 中提取 + 分词统计</p>
-      </div>
+      <div ref="chartRef" style="width: 100%; height: 400px;"></div>
     </el-card>
   </div>
 </template>
 
-<style lang="less" scoped>
+<style scoped>
 .word-cloud {
   padding: 20px;
-  
-  .card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-  
-  .chart-container {
-    width: 100%;
-    height: 400px;
-    margin: 20px 0;
-  }
-  
-  .chart-desc {
-    margin-top: 20px;
-    font-size: 14px;
-    color: #666;
-  }
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 </style>

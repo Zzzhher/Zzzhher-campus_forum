@@ -1,22 +1,18 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import * as echarts from 'echarts';
+import { apiModerationEmotionHeatmap } from '@/net/api/moderation';
+import { ElMessage } from 'element-plus';
 
 const chartRef = ref(null);
 let chartInstance = null;
-
-// Mock data for emotion distribution
-const emotionData = [
-  { name: '校园活动', positive: 65, neutral: 20, negative: 15 },
-  { name: '表白墙', positive: 75, neutral: 15, negative: 10 },
-  { name: '失物招领', positive: 80, neutral: 15, negative: 5 },
-  { name: '帖子广场', positive: 60, neutral: 25, negative: 15 }
-];
+const loading = ref(false);
+const emotionData = ref([]);
 
 const initChart = () => {
-  if (chartRef.value) {
+  if (chartRef.value && emotionData.value.length > 0) {
     chartInstance = echarts.init(chartRef.value);
-    
+
     const option = {
       title: {
         text: '今日情绪分布热力图',
@@ -40,7 +36,7 @@ const initChart = () => {
       },
       xAxis: {
         type: 'category',
-        data: emotionData.map(item => item.name)
+        data: emotionData.value.map(item => item.name)
       },
       yAxis: {
         type: 'value',
@@ -54,7 +50,7 @@ const initChart = () => {
           emphasis: {
             focus: 'series'
           },
-          data: emotionData.map(item => item.positive),
+          data: emotionData.value.map(item => item.positive),
           itemStyle: {
             color: '#52c41a'
           }
@@ -66,7 +62,7 @@ const initChart = () => {
           emphasis: {
             focus: 'series'
           },
-          data: emotionData.map(item => item.neutral),
+          data: emotionData.value.map(item => item.neutral),
           itemStyle: {
             color: '#1890ff'
           }
@@ -78,64 +74,62 @@ const initChart = () => {
           emphasis: {
             focus: 'series'
           },
-          data: emotionData.map(item => item.negative),
+          data: emotionData.value.map(item => item.negative),
           itemStyle: {
             color: '#ff4d4f'
           }
         }
       ]
     };
-    
+
     chartInstance.setOption(option);
-    
+
     window.addEventListener('resize', () => {
       chartInstance.resize();
     });
   }
 };
 
+const fetchData = () => {
+  loading.value = true;
+  apiModerationEmotionHeatmap((data) => {
+    emotionData.value = data;
+    loading.value = false;
+    initChart();
+  }, (error) => {
+    loading.value = false;
+    ElMessage.error('获取情感热力图数据失败');
+    console.error(error);
+  });
+};
+
 onMounted(() => {
-  initChart();
+  fetchData();
 });
 </script>
 
 <template>
   <div class="emotion-heatmap">
-    <el-card shadow="hover">
+    <el-card shadow="hover" v-loading="loading">
       <template #header>
         <div class="card-header">
-          <span>实时情绪热力图</span>
-          <el-tag size="small" type="info">今日数据</el-tag>
+          <span>今日情绪分布热力图</span>
+          <el-tag size="small" type="info">实时数据</el-tag>
         </div>
       </template>
-      <div class="chart-container" ref="chartRef"></div>
-      <div class="chart-desc">
-        <p>展示今日各板块（校园活动、表白墙等）的情感分布（正面/中性/负面占比）</p>
-      </div>
+      <div ref="chartRef" style="width: 100%; height: 400px;"></div>
     </el-card>
   </div>
 </template>
 
-<style lang="less" scoped>
+<style scoped>
 .emotion-heatmap {
   padding: 20px;
-  
-  .card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-  
-  .chart-container {
-    width: 100%;
-    height: 400px;
-    margin: 20px 0;
-  }
-  
-  .chart-desc {
-    margin-top: 20px;
-    font-size: 14px;
-    color: #666;
-  }
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 </style>

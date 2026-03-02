@@ -2,31 +2,41 @@
 import { ref, onMounted } from 'vue';
 import * as echarts from 'echarts';
 import 'echarts-wordcloud';
+import { get } from '@/net';
 
 const chartRef = ref(null);
 let chartInstance = null;
+const timeRange = ref('today');
+const wordData = ref([]);
 
-// Mock data for sensitive words (admin version with more details)
-const wordData = [
-  { name: '刷单', value: 80, category: '违规' },
-  { name: '代课', value: 65, category: '违规' },
-  { name: '太难了', value: 55, category: '情绪' },
-  { name: '考试', value: 50, category: '学习' },
-  { name: '作业', value: 45, category: '学习' },
-  { name: '论文', value: 40, category: '学习' },
-  { name: '挂科', value: 35, category: '学习' },
-  { name: '兼职', value: 30, category: '其他' },
-  { name: '实习', value: 25, category: '其他' },
-  { name: '毕业', value: 20, category: '其他' },
-  { name: '压力', value: 18, category: '情绪' },
-  { name: '焦虑', value: 15, category: '情绪' },
-  { name: '失眠', value: 12, category: '情绪' },
-  { name: '抑郁', value: 10, category: '情绪' },
-  { name: '请假', value: 8, category: '其他' }
-];
+const fetchWordCloudData = () => {
+  get('/api/admin/moderation/stats/sensitive-words',
+    (data) => {
+      wordData.value = data.map(item => ({
+        ...item,
+        category: getWordCategory(item.name)
+      }));
+      initChart();
+    },
+    (message) => {
+      console.error('获取敏感词云数据失败:', message);
+    }
+  );
+};
+
+const getWordCategory = (word) => {
+  const violationWords = ['刷单', '代课', '兼职', '代理', '推广'];
+  const emotionWords = ['太难了', '压力', '焦虑', '失眠', '抑郁'];
+  const studyWords = ['考试', '作业', '论文', '挂科', '学习'];
+  
+  if (violationWords.some(w => word.includes(w))) return '违规';
+  if (emotionWords.some(w => word.includes(w))) return '情绪';
+  if (studyWords.some(w => word.includes(w))) return '学习';
+  return '其他';
+};
 
 const initChart = () => {
-  if (chartRef.value) {
+  if (chartRef.value && wordData.value.length > 0) {
     chartInstance = echarts.init(chartRef.value);
     
     const option = {
@@ -37,7 +47,7 @@ const initChart = () => {
       tooltip: {
         trigger: 'item',
         formatter: function(params) {
-          const data = wordData.find(item => item.name === params.name);
+          const data = wordData.value.find(item => item.name === params.name);
           return `${params.name}: ${params.value}次<br/>分类: ${data.category}`;
         }
       },
@@ -60,7 +70,7 @@ const initChart = () => {
             fontFamily: 'sans-serif',
             fontWeight: 'bold',
             color: function(params) {
-              const data = wordData.find(item => item.name === params.name);
+              const data = wordData.value.find(item => item.name === params.name);
               if (data.category === '违规') return '#ff4d4f';
               if (data.category === '情绪') return '#fa8c16';
               if (data.category === '学习') return '#1890ff';
@@ -74,7 +84,7 @@ const initChart = () => {
               shadowColor: '#333'
             }
           },
-          data: wordData
+          data: wordData.value
         }
       ]
     };
@@ -87,8 +97,12 @@ const initChart = () => {
   }
 };
 
+const refreshData = async () => {
+  await fetchWordCloudData();
+};
+
 onMounted(() => {
-  initChart();
+  fetchWordCloudData();
 });
 </script>
 
@@ -98,7 +112,7 @@ onMounted(() => {
       <template #header>
         <div class="card-header">
           <span>高频敏感词云管理</span>
-          <el-select v-model="timeRange" size="small">
+          <el-select v-model="timeRange" size="small" @change="fetchWordCloudData">
             <el-option label="今日" value="today" />
             <el-option label="本周" value="week" />
             <el-option label="本月" value="month" />
@@ -128,7 +142,7 @@ onMounted(() => {
       <el-divider />
       <div class="admin-actions">
         <el-button type="primary" size="small">导出数据</el-button>
-        <el-button type="success" size="small">刷新数据</el-button>
+        <el-button type="success" size="small" @click="refreshData">刷新数据</el-button>
         <el-button type="warning" size="small">添加敏感词</el-button>
       </div>
     </el-card>

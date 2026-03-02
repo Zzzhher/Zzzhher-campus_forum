@@ -60,5 +60,11 @@ spring:
     deepseek:
       api-key: 'agent-8a2e843d04f11f91b38c9bf1e59afc71'
       base-url: 'http://localhost:8099/chat/api/019bc72a-d237-7c10-9ddf-56a303eb4537'
+    moderation:
+      service-url: 'http://localhost:5000'
+      connect-timeout: 5000
+      read-timeout: 10000
+      failure-threshold: 3
+      circuit-breaker-timeout: 60000
 
 

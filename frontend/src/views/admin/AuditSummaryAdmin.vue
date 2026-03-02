@@ -1,72 +1,65 @@
 <script setup>
 import { ref, onMounted } from 'vue';
+import { get } from '@/net';
 
-// Mock data for audit summary (admin version with more details)
+const timeRange = ref('');
+const searchQuery = ref('');
+const statusFilter = ref('');
 const auditData = ref({
-  total: 127,
-  allowed: 110,
-  reviewed: 15,
-  blocked: 2,
+  total: 0,
+  allowed: 0,
+  reviewed: 0,
+  blocked: 0,
   date: new Date().toLocaleDateString()
 });
-
-// Mock data for audit records with pagination
-const auditRecords = ref([
-  {
-    id: 1,
-    content: '课程太难了',
-    status: 'allowed',
-    statusText: '允许',
-    reason: '合理吐槽',
-    time: '10:30',
-    user: 'user',
-    type: '帖子'
-  },
-  {
-    id: 2,
-    content: '有人要刷单吗？',
-    status: 'blocked',
-    statusText: '拦截',
-    reason: '违规内容',
-    time: '10:25',
-    user: 'user456',
-    type: '评论'
-  },
-  {
-    id: 3,
-    content: '寻找代课，价格面议',
-    status: 'blocked',
-    statusText: '拦截',
-    reason: '违规内容',
-    time: '10:20',
-    user: 'user789',
-    type: '帖子'
-  },
-  {
-    id: 4,
-    content: '考试要挂科了，怎么办？',
-    status: 'allowed',
-    statusText: '允许',
-    reason: '合理求助',
-    time: '10:15',
-    user: 'user234',
-    type: '评论'
-  },
-  {
-    id: 5,
-    content: '兼职：日结，有意者联系',
-    status: 'reviewed',
-    statusText: '人工复核',
-    reason: '需要审核',
-    time: '10:10',
-    user: 'user567',
-    type: '帖子'
-  }
-]);
-
+const auditRecords = ref([]);
 const currentPage = ref(1);
 const pageSize = ref(10);
-const total = ref(auditRecords.value.length);
+const total = ref(0);
+const loading = ref(false);
+
+const fetchAuditSummary = () => {
+  get('/api/admin/moderation/stats/dashboard',
+    (data) => {
+      if (data.realtime) {
+        auditData.value = {
+          total: data.realtime.total || 0,
+          allowed: data.realtime.allow || 0,
+          reviewed: data.realtime.manual || 0,
+          blocked: data.realtime.block || 0,
+          date: new Date().toLocaleDateString()
+        };
+      }
+    },
+    (message) => {
+      console.error('获取审核摘要数据失败:', message);
+    }
+  );
+};
+
+const fetchAuditRecords = () => {
+  loading.value = true;
+  const params = new URLSearchParams({
+    page: currentPage.value,
+    size: pageSize.value,
+    search: searchQuery.value,
+    status: statusFilter.value,
+    timeRange: timeRange.value
+  });
+  get(`/api/admin/moderation/logs?${params.toString()}`,
+    (data) => {
+      auditRecords.value = data.list || [];
+      total.value = data.total || 0;
+      loading.value = false;
+    },
+    (message) => {
+      console.error('获取审核记录失败:', message);
+      auditRecords.value = [];
+      total.value = 0;
+      loading.value = false;
+    }
+  );
+};
 
 const getStatusType = (status) => {
   switch (status) {
@@ -76,15 +69,35 @@ const getStatusType = (status) => {
     default: return 'info';
   }
 };
+
+const handleSearch = () => {
+  currentPage.value = 1;
+  fetchAuditRecords();
+};
+
+const handlePageChange = () => {
+  fetchAuditRecords();
+};
+
+const refreshData = async () => {
+  await fetchAuditSummary();
+  await fetchAuditRecords();
+};
+
+onMounted(() => {
+  fetchAuditSummary();
+  fetchAuditRecords();
+});
 </script>
 
 <template>
   <div class="audit-summary-admin">
-    <el-card shadow="hover">
+    <el-card shadow="hover" v-loading="loading">
       <template #header>
         <div class="card-header">
           <span>审核日志摘要管理</span>
-          <el-select v-model="timeRange" size="small">
+          <el-select v-model="timeRange" size="small" @change="refreshData">
+            <el-option label="全部" value="" />
             <el-option label="今日" value="today" />
             <el-option label="本周" value="week" />
             <el-option label="本月" value="month" />
@@ -121,10 +134,10 @@ const getStatusType = (status) => {
           <el-option label="拦截" value="blocked" />
           <el-option label="人工复核" value="reviewed" />
         </el-select>
-        <el-button type="primary" size="small" style="margin-left: 10px">搜索</el-button>
+        <el-button type="primary" size="small" style="margin-left: 10px" @click="handleSearch">搜索</el-button>
       </div>
       <div class="audit-records">
-        <el-table :data="auditRecords" style="width: 100%" size="small">
+        <el-table :data="auditRecords" style="width: 100%" size="small" empty-text="暂无数据">
           <el-table-column prop="id" label="ID" width="80" />
           <el-table-column prop="content" label="内容" min-width="200">
             <template #default="scope">
@@ -145,25 +158,25 @@ const getStatusType = (status) => {
           <el-table-column label="操作" width="150">
             <template #default="scope">
               <el-button type="primary" size="small" link>查看</el-button>
-              <el-button type="danger" size="small" link>删除</el-button>
             </template>
           </el-table-column>
         </el-table>
-        <div class="pagination">
+        <div class="pagination" v-if="total > 0">
           <el-pagination
             v-model:current-page="currentPage"
             v-model:page-size="pageSize"
             :page-sizes="[10, 20, 50, 100]"
             layout="total, sizes, prev, pager, next, jumper"
             :total="total"
+            @change="handlePageChange"
           />
         </div>
+        <el-empty v-else description="暂无审核记录" />
       </div>
       <el-divider />
       <div class="admin-actions">
         <el-button type="primary" size="small">导出数据</el-button>
-        <el-button type="success" size="small">刷新数据</el-button>
-        <el-button type="warning" size="small">清空日志</el-button>
+        <el-button type="success" size="small" @click="refreshData">刷新数据</el-button>
       </div>
     </el-card>
   </div>
@@ -172,60 +185,60 @@ const getStatusType = (status) => {
 <style lang="less" scoped>
 .audit-summary-admin {
   padding: 20px;
-  
+
   .card-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
   }
-  
+
   .summary-stats {
     display: flex;
     justify-content: space-around;
     align-items: center;
     margin: 30px 0;
-    
+
     .stat-item {
       text-align: center;
       flex: 1;
-      
+
       .stat-number {
         font-size: 32px;
         font-weight: bold;
         color: #1890ff;
       }
-      
+
       .stat-label {
         font-size: 14px;
         color: #666;
         margin-top: 5px;
       }
     }
-    
+
     .stat-divider {
       width: 1px;
       height: 60px;
       background-color: #eaeaea;
     }
   }
-  
+
   .search-filters {
     margin: 20px 0;
   }
-  
+
   .content-cell {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 300px;
   }
-  
+
   .pagination {
     margin-top: 20px;
     display: flex;
     justify-content: flex-end;
   }
-  
+
   .admin-actions {
     margin-top: 20px;
     display: flex;

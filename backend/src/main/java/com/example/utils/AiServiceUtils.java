@@ -1,16 +1,21 @@
 package com.example.utils;
 
+import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
+import com.example.entity.dto.ModerationLog;
+import com.example.mapper.ModerationLogMapper;
+import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
+import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -19,14 +24,25 @@ import java.util.concurrent.atomic.AtomicInteger;
 @Component
 public class AiServiceUtils {
 
-    private static final String AI_SERVICE_URL = "http://localhost:5000";
+    // 从配置文件读取AI服务配置
+    @Value("${spring.ai.moderation.service-url:http://localhost:5000}")
+    private String aiServiceUrl;
+
+    @Value("${spring.ai.moderation.failure-threshold:3}")
+    private int failureThreshold;
+
+    @Value("${spring.ai.moderation.circuit-breaker-timeout:60000}")
+    private long circuitBreakerTimeout;
+
+    private static String AI_SERVICE_URL;
+    private static int FAILURE_THRESHOLD;
+    private static long CIRCUIT_BREAKER_TIMEOUT;
+
     private static final String MODERATE_ENDPOINT = "/moderate";
     private static final String HEALTH_ENDPOINT = "/health";
     private static final String SENSITIVE_CHECK_ENDPOINT = "/sensitive_words/check";
 
     // 服务降级相关配置
-    private static final int FAILURE_THRESHOLD = 3; // 连续失败阈值
-    private static final long CIRCUIT_BREAKER_TIMEOUT = 60000; // 熔断超时时间（毫秒）
     private static final AtomicInteger consecutiveFailures = new AtomicInteger(0);
     private static final AtomicBoolean circuitBreakerOpen = new AtomicBoolean(false);
     private static volatile long circuitBreakerOpenTime = 0;
@@ -44,6 +60,55 @@ public class AiServiceUtils {
 
     private static RestTemplate restTemplate;
     private static ProhibitedUtils prohibitedUtils;
+    private static ModerationLogMapper moderationLogMapper;
+
+    @PostConstruct
+    public void init() {
+        AI_SERVICE_URL = this.aiServiceUrl;
+        FAILURE_THRESHOLD = this.failureThreshold;
+        CIRCUIT_BREAKER_TIMEOUT = this.circuitBreakerTimeout;
+        log.info("AI审核服务配置加载完成: URL={}, 失败阈值={}, 熔断超时={}ms",
+                AI_SERVICE_URL, FAILURE_THRESHOLD, CIRCUIT_BREAKER_TIMEOUT);
+
+        // 从数据库加载历史审核统计数据
+        loadStatsFromDatabase();
+    }
+
+    /**
+     * 从数据库加载历史审核统计数据
+     */
+    private void loadStatsFromDatabase() {
+        try {
+            if (moderationLogMapper != null) {
+                // 查询所有审核记录的统计
+                List<Map<String, Object>> stats = moderationLogMapper.selectActionStatsLast7Days();
+                if (stats != null && !stats.isEmpty()) {
+                    // 重置现有统计
+                    resetStats();
+
+                    // 从数据库加载数据
+                    int total = 0;
+                    for (Map<String, Object> stat : stats) {
+                        String action = (String) stat.get("action");
+                        int count = ((Number) stat.get("count")).intValue();
+                        total += count;
+
+                        switch (action != null ? action.toUpperCase() : "") {
+                            case "ALLOW", "APPROVE" -> moderationStats.get("allow").addAndGet(count);
+                            case "BLOCK", "REJECT" -> moderationStats.get("block").addAndGet(count);
+                            case "MANUAL_REVIEW", "MANUAL", "REVIEW" -> moderationStats.get("manual").addAndGet(count);
+                        }
+                    }
+                    moderationStats.get("total").set(total);
+                    log.info("从数据库加载审核统计数据完成，总审核数: {}", total);
+                } else {
+                    log.info("数据库中没有审核记录，统计数据保持为0");
+                }
+            }
+        } catch (Exception e) {
+            log.error("从数据库加载审核统计数据失败", e);
+        }
+    }
 
     @Autowired
     public void setRestTemplate(RestTemplate restTemplate) {
@@ -53,6 +118,11 @@ public class AiServiceUtils {
     @Autowired
     public void setProhibitedUtils(ProhibitedUtils prohibitedUtils) {
         AiServiceUtils.prohibitedUtils = prohibitedUtils;
+    }
+
+    @Autowired
+    public void setModerationLogMapper(ModerationLogMapper moderationLogMapper) {
+        AiServiceUtils.moderationLogMapper = moderationLogMapper;
     }
 
     /**
@@ -271,11 +341,62 @@ public class AiServiceUtils {
      * @param text        审核文本
      * @param reason      审核原因
      */
-    public static void logModeration(int contentId, String contentType, String text, String reason) {
-        // 这里可以实现将审核日志写入数据库的逻辑
+    public static void logModeration(int contentId, String contentType, String text, String reason,
+            JSONObject moderationResult, String action) {
+        // 记录日志
         log.info("审核日志 - 内容ID: {}, 类型: {}, 原因: {}, 文本: {}",
                 contentId, contentType, reason,
                 text != null && text.length() > 50 ? text.substring(0, 50) + "..." : text);
+
+        // 从审核结果中提取信息
+        String sentimentLabel = null;
+        Double sentimentConfidence = null;
+        String sensitiveWords = null;
+        Integer riskScore = 0;
+
+        if (moderationResult != null && moderationResult.getBoolean("success")) {
+            JSONObject data = moderationResult.getJSONObject("data");
+            if (data != null) {
+                // 提取情感分析信息
+                JSONObject sentiment = data.getJSONObject("sentiment");
+                if (sentiment != null) {
+                    sentimentLabel = sentiment.getString("label");
+                    sentimentConfidence = sentiment.getDouble("confidence");
+                }
+
+                // 提取敏感词信息
+                JSONObject sensitiveWordsObj = data.getJSONObject("sensitive_words");
+                if (sensitiveWordsObj != null && sensitiveWordsObj.getBoolean("matched")) {
+                    JSONArray wordsArray = sensitiveWordsObj.getJSONArray("words");
+                    if (wordsArray != null && !wordsArray.isEmpty()) {
+                        sensitiveWords = String.join(",", wordsArray.toJavaList(String.class));
+                    }
+                    riskScore = sensitiveWordsObj.getIntValue("risk_score");
+                }
+            }
+        }
+
+        // 保存到数据库
+        try {
+            if (moderationLogMapper != null) {
+                ModerationLog moderationLog = new ModerationLog();
+                moderationLog.setContentId(contentId);
+                moderationLog.setContentType(contentType);
+                moderationLog.setText(text);
+                moderationLog.setAction(action != null ? action.toUpperCase() : "ALLOW");
+                moderationLog.setReason(reason);
+                moderationLog.setSentimentLabel(sentimentLabel);
+                moderationLog.setSentimentConfidence(sentimentConfidence);
+                moderationLog.setSensitiveWords(sensitiveWords);
+                moderationLog.setRiskScore(riskScore);
+                moderationLog.setIsFallback(0);
+                moderationLog.setCreateTime(new Date());
+                moderationLogMapper.insert(moderationLog);
+                log.info("审核日志已保存到数据库");
+            }
+        } catch (Exception e) {
+            log.error("保存审核日志到数据库失败", e);
+        }
     }
 
     /**
@@ -302,11 +423,11 @@ public class AiServiceUtils {
 
             return JSONObject.parseObject(response.getBody());
         } catch (Exception e) {
-            log.error("敏感词检测调用失败", e);
-            JSONObject errorResult = new JSONObject();
-            errorResult.put("success", false);
-            errorResult.put("error", "敏感词检测调用失败: " + e.getMessage());
-            return errorResult;
+            log.error("敏感词检测失败", e);
+            JSONObject result = new JSONObject();
+            result.put("success", false);
+            result.put("error", e.getMessage());
+            return result;
         }
     }
 
@@ -315,27 +436,21 @@ public class AiServiceUtils {
      *
      * @return 统计信息
      */
-    public static JSONObject getModerationStats() {
-        JSONObject stats = new JSONObject();
-        stats.put("total", moderationStats.get("total").get());
-        stats.put("allow", moderationStats.get("allow").get());
-        stats.put("block", moderationStats.get("block").get());
-        stats.put("manual", moderationStats.get("manual").get());
-        stats.put("fallback", moderationStats.get("fallback").get());
+    public static Map<String, Integer> getModerationStats() {
+        Map<String, Integer> stats = new HashMap<>();
+        moderationStats.forEach((k, v) -> stats.put(k, v.get()));
 
-        // 计算通过率
-        int total = moderationStats.get("total").get();
+        // 计算百分比
+        int total = stats.getOrDefault("total", 0);
         if (total > 0) {
-            stats.put("allowRate", String.format("%.2f%%", moderationStats.get("allow").get() * 100.0 / total));
-            stats.put("blockRate", String.format("%.2f%%", moderationStats.get("block").get() * 100.0 / total));
-            stats.put("manualRate", String.format("%.2f%%", moderationStats.get("manual").get() * 100.0 / total));
+            stats.put("allowRate", (int) Math.round(stats.getOrDefault("allow", 0) * 100.0 / total));
+            stats.put("blockRate", (int) Math.round(stats.getOrDefault("block", 0) * 100.0 / total));
+            stats.put("manualRate", (int) Math.round(stats.getOrDefault("manual", 0) * 100.0 / total));
         }
 
-        // 服务状态
-        stats.put("circuitBreakerOpen", circuitBreakerOpen.get());
+        // 添加熔断器状态
+        stats.put("circuitBreakerOpen", circuitBreakerOpen.get() ? 1 : 0);
         stats.put("consecutiveFailures", consecutiveFailures.get());
-        stats.put("aiServiceAvailable", checkHealth());
-        stats.put("timestamp", LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
 
         return stats;
     }
@@ -344,16 +459,12 @@ public class AiServiceUtils {
      * 重置审核统计
      */
     public static void resetStats() {
-        moderationStats.get("total").set(0);
-        moderationStats.get("allow").set(0);
-        moderationStats.get("block").set(0);
-        moderationStats.get("manual").set(0);
-        moderationStats.get("fallback").set(0);
+        moderationStats.forEach((k, v) -> v.set(0));
         log.info("审核统计已重置");
     }
 
     /**
-     * 手动重置熔断器
+     * 重置熔断器
      */
     public static void resetCircuitBreaker() {
         circuitBreakerOpen.set(false);

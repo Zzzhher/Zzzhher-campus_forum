@@ -84,4 +84,19 @@ public interface TopicService extends IService<Topic> {
     void batchApproveComments(List<Integer> ids);
 
     void batchRejectComments(List<Integer> ids);
+
+    // 用户活跃度统计相关方法
+    int getUserTopicCount(int uid);
+
+    int getUserCommentCount(int uid);
+
+    int getUserReceivedLikesCount(int uid);
+
+    int getUserTopicCountByDate(int uid, java.time.LocalDate date);
+
+    int getUserCommentCountByDate(int uid, java.time.LocalDate date);
+
+    int getUserLikesCountByDate(int uid, java.time.LocalDate date);
+
+    List<java.util.Map<String, Object>> getUserRecentActivities(int uid, int limit);
 }
