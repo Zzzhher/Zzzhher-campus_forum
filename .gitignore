@@ -1,2 +1,28 @@
 .idea/
 log/
+
+# 敏感配置文件
+**/application-dev.yml
+**/application-prod.yml
+
+# 编译产物
+target/
+build/
+dist/
+
+# 依赖包
+node_modules/
+
+# IDE相关
+.vscode/
+*.iml
+*.class
+
+# 敏感信息文件
+*.pem
+*.key
+*.crt
+
+# 数据库脚本（可选，根据实际情况）
+# sql/
+
