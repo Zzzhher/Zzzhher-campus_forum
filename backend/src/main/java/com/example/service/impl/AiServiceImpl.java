@@ -16,7 +16,7 @@ import reactor.core.publisher.Flux;
 
 import java.util.List;
 
-@Service("aiService")
+@Service
 public class AiServiceImpl implements AiService {
 
     @Resource
@@ -50,6 +50,18 @@ public class AiServiceImpl implements AiService {
         }, emitter::completeWithError, emitter::complete);
 
         return emitter;
+    }
+
+    @Override
+    public boolean checkFalseAdvertising(String text) {
+        String prompt = "请判断以下文本是否包含虚假宣传内容，如'包过'、'高薪'等误导性词汇。如果包含，请返回'是'，否则返回'否'。\n\n" + text;
+        Prompt chatPrompt = new Prompt(new UserMessage(prompt));
+        ChatResponse response = chatModel.call(chatPrompt);
+        if (response.getResult() == null || response.getResult().getOutput() == null) {
+            return false;
+        }
+        String result = response.getResult().getOutput().getText();
+        return result.contains("是");
     }
 
     /**
