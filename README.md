@@ -6,17 +6,17 @@
 
 ### 后端
 
-- **框架**: Spring Boot 3.1.2
+- **框架**: Spring Boot 3.5.8
 - **语言**: Java 17
 - **安全**: Spring Security + JWT
-- **ORM**: MyBatis-Plus 3.5.3.1
+- **ORM**: MyBatis-Plus 3.5.15
 - **数据库**: MySQL 8.0.34
 - **缓存**: Redis
 - **消息队列**: RabbitMQ
-- **API 文档**: Swagger 2.1.0
+- **API 文档**: SpringDoc OpenAPI 2.1.0
 - **搜索**: Elasticsearch
 - **对象存储**: MinIO
-- **工具库**: FastJSON2、Lombok、JWT
+- **工具库**: FastJSON2、Lombok、JWT、DeepSeek AI
 
 ### 前端
 
@@ -26,6 +26,8 @@
 - **路由**: Vue Router 4.2.4
 - **HTTP 客户端**: Axios 1.4.0
 - **富文本编辑器**: Quill
+- **数据可视化**: ECharts、ECharts-Wordcloud
+- **状态管理**: Pinia
 
 ## 项目结构
 
@@ -85,7 +87,7 @@ campus_forum/
 ### 启动步骤
 
 1. **配置数据库**
-   - 创建数据库：`CREATE DATABASE campus_forum CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+   - 创建数据库：`CREATE DATABASE campus_forum CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`
    - 执行SQL脚本：`mysql -u root -p campus_forum < sql/campus_forum.sql`
 
 2. **配置后端**
@@ -93,6 +95,7 @@ campus_forum/
    - 配置 Redis、RabbitMQ、Elasticsearch 等服务地址
 
 3. **启动后端**
+
    ```bash
    cd backend
    mvn spring-boot:run
@@ -146,6 +149,16 @@ campus_forum/
 - **统计分析**: 论坛活跃度、用户增长等统计
 - **系统配置**: 敏感词管理、审核策略配置
 
+### 特色功能
+
+- **AI聊天**: 集成DeepSeek AI，提供智能聊天功能
+- **数据可视化**: 情感热力图、词云分析等数据可视化特性
+- **活动管理**: 校园活动发布和管理
+- **失物招领**: 失物招领功能
+- **表白墙**: 校园表白墙功能
+- **驾校推荐**: 驾校信息和推荐
+- **资源分享**: 校园资源分享平台
+
 ## API 接口
 
 ### 用户认证接口
@@ -186,6 +199,11 @@ campus_forum/
 - `GET /api/admin/comments` - 获取评论列表
 - `DELETE /api/admin/comment/{id}` - 删除评论
 
+### AI接口
+
+- `POST /api/ai/chat` - AI聊天接口
+- `POST /api/ai/moderate` - 内容审核接口
+
 ## 配置说明
 
 ### 后端配置
@@ -216,6 +234,11 @@ campus_forum/
 1. 启动 AI 审核服务（详见 `campus_forum_model` 项目说明）
 2. 在 `backend/src/main/resources/application.yml` 中配置 AI 审核服务地址
 3. 系统会自动将用户发布的内容发送到 AI 审核服务进行检测
+
+## 项目地址
+
+- **前端/后端项目**: [https://github.com/Zzzhher/Zzzhher-campus_forum](https://github.com/Zzzhher/Zzzhher-campus_forum)
+- **AI审核模型项目**: [https://github.com/Zzzhher/Zzzhher-campus_forum_model](https://github.com/Zzzhher/Zzzhher-campus_forum_model)
 
 ## 联系方式
 
