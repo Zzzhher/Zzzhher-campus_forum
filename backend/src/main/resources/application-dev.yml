@@ -9,7 +9,7 @@ spring:
     username: 18329503441@163.com
     password: UGbq6K3fLH8xmKeW
   rabbitmq:
-    addresses: 192.168.65.131
+    addresses: 192.168.232.131
     username: admin
     password: 123456
     virtual-host: /
@@ -26,8 +26,11 @@ spring:
   datasource:
     url: jdbc:mysql://localhost:3306/campus_forum
     username: root
-    password: 123456
+    password: Root@123456
     driver-class-name: com.mysql.cj.jdbc.Driver
+  data:
+    redis:
+      password: Root@123456
   security:
     jwt:
       key: "abcdefghijklmn"
@@ -50,7 +53,7 @@ spring:
       credentials: false
       methods: "*"
   minio:
-    endpoint: http://192.168.65.128:9000
+    endpoint: http://192.168.232.128:9000
     username: minio
     password: password
   weather:
@@ -58,8 +61,8 @@ spring:
     apihost: nu3qqpjw8a.re.qweatherapi.com
   ai:
     deepseek:
-      api-key: 'agent-8a2e843d04f11f91b38c9bf1e59afc71'
-      base-url: 'http://localhost:8099/chat/api/019bc72a-d237-7c10-9ddf-56a303eb4537'
+      api-key: 'agent-da6cad6e49857034955f36f4242f12ec'
+      base-url: 'http://localhost:8099/chat/api/019da102-a912-7a42-8300-b46eaabe4eb3'
     moderation:
       service-url: 'http://localhost:5000'
       connect-timeout: 5000

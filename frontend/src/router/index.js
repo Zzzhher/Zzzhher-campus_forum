@@ -60,14 +60,6 @@ const router = createRouter({
                     name: 'activity',
                     component: () => import('@/views/forum/ActivityView.vue')
                 }, {
-                    path: 'activity-create',
-                    name: 'activity-create',
-                    component: () => import('@/views/forum/ActivityCreate.vue')
-                }, {
-                    path: 'activity-detail/:id',
-                    name: 'activity-detail',
-                    component: () => import('@/views/forum/ActivityDetail.vue')
-                }, {
                     path: 'lost-found',
                     name: 'lost-found',
                     component: () => import('@/views/forum/LostFoundView.vue')
@@ -113,18 +105,6 @@ const router = createRouter({
                     path: 'forum',
                     name: 'admin-forum',
                     component: () => import('@/views/admin/ForumAdmin.vue')
-                }, {
-                    path: 'activity',
-                    name: 'admin-activity',
-                    component: () => import('@/views/admin/ActivityAdmin.vue')
-                }, {
-                    path: 'lost-found',
-                    name: 'admin-lost-found',
-                    component: () => import('@/views/admin/LostFoundAdmin.vue')
-                }, {
-                    path: 'confession',
-                    name: 'admin-confession',
-                    component: () => import('@/views/admin/ConfessionAdmin.vue')
                 }, {
                     path: 'emotion-heatmap',
                     name: 'admin-emotion-heatmap',
